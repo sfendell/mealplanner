@@ -1,11 +1,40 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 const fs = require("fs");
+const { google } = require("googleapis");
+const { OAuth2Client } = require("google-auth-library");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+// Google Calendar API configuration
+const SCOPES = ["https://www.googleapis.com/auth/calendar"];
+
+// OAuth 2.0 configuration
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const REDIRECT_URI =
+  process.env.GOOGLE_REDIRECT_URI ||
+  "http://127.0.0.1:5001/auth/google/callback";
+
+// Store tokens in memory (in production, use a database)
+let tokens = null;
+
+// Initialize OAuth 2.0 client
+const oauth2Client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+
+// Initialize Google Auth
+function getAuthClient() {
+  if (!tokens) {
+    throw new Error("Not authenticated. Please authenticate first.");
+  }
+
+  oauth2Client.setCredentials(tokens);
+  return oauth2Client;
+}
 
 // Middleware
 app.use(cors());
@@ -36,9 +65,12 @@ function loadPrepInstructions() {
     const lines = content.split("\n").filter((line) => line.trim());
 
     lines.forEach((line) => {
-      const [ingredient, instruction] = line.split(":");
-      if (ingredient && instruction) {
-        prepInstructions[ingredient.trim().toLowerCase()] = instruction.trim();
+      // Skip comment lines
+      if (line.trim().startsWith("#")) return;
+
+      const [key, instruction] = line.split(":");
+      if (key && instruction) {
+        prepInstructions[key.trim().toLowerCase()] = instruction.trim();
       }
     });
 
@@ -100,9 +132,10 @@ function parseMealsFile() {
           return;
         }
 
+        // Always update/insert the meal (overwrite if exists)
+        const ingredientsJson = JSON.stringify(ingredients);
         if (!row) {
           // Meal doesn't exist, insert it
-          const ingredientsJson = JSON.stringify(ingredients);
           db.run(
             "INSERT INTO meals (title, ingredients, hasVeggieSide) VALUES (?, ?, ?)",
             [title, ingredientsJson, 0],
@@ -115,7 +148,18 @@ function parseMealsFile() {
             }
           );
         } else {
-          console.log(`Meal already exists: ${title}`);
+          // Meal exists, update it
+          db.run(
+            "UPDATE meals SET ingredients = ?, hasVeggieSide = ? WHERE title = ?",
+            [ingredientsJson, 0, title],
+            function (err) {
+              if (err) {
+                console.error("Error updating meal:", err.message);
+              } else {
+                console.log(`Updated meal: ${title}`);
+              }
+            }
+          );
         }
       });
     });
@@ -156,6 +200,46 @@ function initDatabase() {
   );
 }
 
+// OAuth Routes
+app.get("/auth/google", (req, res) => {
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    scope: SCOPES,
+    prompt: "consent", // Force consent screen to get refresh token
+  });
+  res.redirect(authUrl);
+});
+
+app.get("/auth/google/callback", async (req, res) => {
+  const { code } = req.query;
+
+  try {
+    const { tokens: newTokens } = await oauth2Client.getToken(code);
+    tokens = newTokens;
+
+    // Store tokens (in production, save to database)
+    console.log("Authentication successful!");
+
+    res.json({
+      success: true,
+      message: "Authentication successful! You can now use the calendar API.",
+    });
+  } catch (error) {
+    console.error("Error getting tokens:", error);
+    res.status(500).json({
+      error: "Authentication failed",
+      details: error.message,
+    });
+  }
+});
+
+app.get("/auth/status", (req, res) => {
+  res.json({
+    authenticated: !!tokens,
+    hasRefreshToken: !!(tokens && tokens.refresh_token),
+  });
+});
+
 // Routes
 app.get("/api/meals", (req, res) => {
   db.all("SELECT * FROM meals ORDER BY created_at DESC", [], (err, rows) => {
@@ -194,7 +278,7 @@ app.post("/api/meals", (req, res) => {
       // Handle new format with quantity and name
       return {
         quantity: ingredient.quantity || null,
-        name: (ingredient.name || ingredient.ingredient || "").toLowerCase(),
+        name: ingredient.name.toLowerCase(),
       };
     })
     .filter((ingredient) => ingredient.name);
@@ -240,7 +324,7 @@ app.put("/api/meals/:id", (req, res) => {
       // Handle new format with quantity and name
       return {
         quantity: ingredient.quantity || null,
-        name: (ingredient.name || ingredient.ingredient || "").toLowerCase(),
+        name: ingredient.name.toLowerCase(),
       };
     })
     .filter((ingredient) => ingredient.name);
@@ -293,6 +377,86 @@ app.delete("/api/meals/:id", (req, res) => {
 // Get prep instructions
 app.get("/api/prep", (req, res) => {
   res.json(prepInstructions);
+});
+
+// Google Calendar API route
+app.post("/api/calendar", async (req, res) => {
+  try {
+    const { events } = req.body;
+
+    if (!events || !Array.isArray(events)) {
+      return res.status(400).json({ error: "Invalid events data" });
+    }
+
+    const auth = getAuthClient();
+    const calendar = google.calendar({ version: "v3", auth });
+
+    const createdEvents = [];
+
+    for (const event of events) {
+      const { title, date, attendees, description = "" } = event;
+
+      // Convert date string to Date object
+      const eventDate = new Date(date);
+
+      // Set event time to 6 PM
+      eventDate.setHours(18, 0, 0, 0);
+
+      const endDate = new Date(eventDate);
+      endDate.setHours(19, 0, 0, 0); // 1 hour duration
+
+      const calendarEvent = {
+        summary: title,
+        description: description,
+        start: {
+          dateTime: eventDate.toISOString(),
+          timeZone: "America/New_York", // Adjust timezone as needed
+        },
+        end: {
+          dateTime: endDate.toISOString(),
+          timeZone: "America/New_York",
+        },
+        attendees: attendees.map((email) => ({ email })),
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: "email", minutes: 24 * 60 }, // 1 day before
+            { method: "popup", minutes: 30 }, // 30 minutes before
+          ],
+        },
+      };
+
+      const response = await calendar.events.insert({
+        calendarId: "primary",
+        resource: calendarEvent,
+        sendUpdates: "all", // Send emails to all attendees
+      });
+
+      createdEvents.push({
+        id: response.data.id,
+        title: response.data.summary,
+        date: response.data.start.dateTime,
+        attendees: attendees, // Keep track of intended attendees
+        htmlLink: response.data.htmlLink,
+        // Generate shareable link for manual sharing
+        shareableLink: `https://calendar.google.com/calendar/event?eid=${Buffer.from(
+          response.data.id
+        ).toString("base64")}`,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully created ${createdEvents.length} calendar events and sent emails to all attendees.`,
+      events: createdEvents,
+    });
+  } catch (error) {
+    console.error("Google Calendar API Error:", error);
+    res.status(500).json({
+      error: "Failed to create calendar events",
+      details: error.message,
+    });
+  }
 });
 
 // Serve static files in production

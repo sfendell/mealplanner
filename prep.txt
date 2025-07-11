@@ -1,3 +1,4 @@
+# Ingredient-specific prep steps
 chicken breast:defrost chicken breast
 chicken thigh:defrost chicken thighs
 salmon:defrost salmon
@@ -19,4 +20,7 @@ black beans:drain and rinse black beans
 kidney beans:drain and rinse kidney beans
 garlic:mince garlic
 ginger:mince ginger
-blackening seasoning:prepare blackening seasoning 
+blackening seasoning:prepare blackening seasoning
+bean salad:pickle red onions 
+cajun seasoning:prepare cajun seasoning
+shrimp:peel shrimp

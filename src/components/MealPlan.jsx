@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from "react";
 import PrepCalendar from "./PrepCalendar";
 import { toTitleCase } from "../utils/format";
+import { DAY_NAMES, DAY_LABELS } from "../constants";
 
 function MealPlan({ mealsMap }) {
+  const [planType, setPlanType] = useState("weeknights"); // weeknights, fullweek, custom
+  const [customStartDay, setCustomStartDay] = useState("monday");
+  const [customEndDay, setCustomEndDay] = useState("friday");
   const [weeklyPlan, setWeeklyPlan] = useState({
     monday: null,
     tuesday: null,
@@ -13,6 +17,12 @@ function MealPlan({ mealsMap }) {
     sunday: null,
   });
   const [prepInstructions, setPrepInstructions] = useState({});
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [emails, setEmails] = useState([
+    "sfendell91@gmail.com",
+    "suresh.soumya105@gmail.com",
+  ]);
+  const [emailInput, setEmailInput] = useState("");
 
   useEffect(() => {
     fetch("/api/prep")
@@ -21,15 +31,108 @@ function MealPlan({ mealsMap }) {
       .catch((err) => console.error("Error fetching prep instructions:", err));
   }, []);
 
-  const days = [
-    { key: "monday", label: "Monday" },
-    { key: "tuesday", label: "Tuesday" },
-    { key: "wednesday", label: "Wednesday" },
-    { key: "thursday", label: "Thursday" },
-    { key: "friday", label: "Friday" },
-    { key: "saturday", label: "Saturday" },
-    { key: "sunday", label: "Sunday" },
-  ];
+  const getDaysForPlanType = () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const dayKeys = Object.keys(DAY_NAMES);
+    const dayLabels = Object.values(DAY_LABELS);
+
+    let days = [];
+
+    if (planType === "weeknights") {
+      // M-F weeknight planning (next Monday through Friday)
+      const nextMonday = new Date(tomorrow);
+      const daysUntilMonday = (8 - tomorrow.getDay()) % 7;
+      nextMonday.setDate(tomorrow.getDate() + daysUntilMonday);
+
+      for (let i = 0; i < 5; i++) {
+        const date = new Date(nextMonday);
+        date.setDate(nextMonday.getDate() + i);
+        const dayIndex = date.getDay();
+        const dayKey = dayKeys[dayIndex];
+        const dayLabel = dayLabels[dayIndex];
+        days.push({ key: dayKey, label: dayLabel, date });
+      }
+    } else if (planType === "fullweek") {
+      // Sun-Saturday all week planning (next Sunday through Saturday)
+      const nextSunday = new Date(tomorrow);
+      const daysUntilSunday = (7 - tomorrow.getDay()) % 7;
+      nextSunday.setDate(tomorrow.getDate() + daysUntilSunday);
+
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(nextSunday);
+        date.setDate(nextSunday.getDate() + i);
+        const dayIndex = date.getDay();
+        const dayKey = dayKeys[dayIndex];
+        const dayLabel = dayLabels[dayIndex];
+        days.push({ key: dayKey, label: dayLabel, date });
+      }
+    } else if (planType === "custom") {
+      // Custom start/stop days
+      const startDayIndex = dayKeys.indexOf(customStartDay);
+      const endDayIndex = dayKeys.indexOf(customEndDay);
+
+      let currentDate = new Date(tomorrow);
+      let daysAdded = 0;
+      const maxDays = 14; // Prevent infinite loops
+
+      while (daysAdded < maxDays) {
+        const dayIndex = currentDate.getDay();
+        const dayKey = dayKeys[dayIndex];
+        const dayLabel = dayLabels[dayIndex];
+
+        if (dayKey === customStartDay) {
+          // Start collecting days from the start day
+          let tempDays = [];
+          let tempDate = new Date(currentDate);
+
+          // If start and end day are the same, do 8 days instead of 1
+          const daysToCollect = customStartDay === customEndDay ? 8 : 7;
+
+          for (let i = 0; i < daysToCollect; i++) {
+            const tempDayIndex = tempDate.getDay();
+            const tempDayKey = dayKeys[tempDayIndex];
+            const tempDayLabel = dayLabels[tempDayIndex];
+
+            tempDays.push({
+              key: tempDayKey,
+              label: tempDayLabel,
+              date: new Date(tempDate),
+            });
+
+            // If start and end are different, stop when we reach the end day
+            if (
+              customStartDay !== customEndDay &&
+              tempDayKey === customEndDay
+            ) {
+              days = tempDays;
+              break;
+            }
+
+            tempDate.setDate(tempDate.getDate() + 1);
+          }
+
+          // If we collected all days (either 8 for same day or reached end day), set the days
+          if (
+            tempDays.length === daysToCollect ||
+            (customStartDay !== customEndDay && tempDays.length > 0)
+          ) {
+            days = tempDays;
+          }
+          break;
+        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
+        daysAdded++;
+      }
+    }
+
+    return days;
+  };
+
+  const days = getDaysForPlanType();
 
   const handleMealSelect = (day, mealId) => {
     setWeeklyPlan((prev) => ({
@@ -43,31 +146,30 @@ function MealPlan({ mealsMap }) {
     let veggieCount = 0;
 
     Object.values(weeklyPlan).forEach((mealId) => {
-      if (mealId) {
-        const meal = mealsMap.get(mealId);
-        if (meal) {
-          meal.ingredients.forEach((ingredient) => {
-            const ingredientName = ingredient.name || ingredient.ingredient;
-            const key = ingredientName.toLowerCase();
-            if (shoppingList[key]) {
-              // If ingredient has a quantity, add it
-              if (ingredient.quantity) {
-                shoppingList[key].quantity += parseInt(ingredient.quantity);
-              }
-              // If no quantity, it's a boolean item - no need to increment
-            } else {
-              shoppingList[key] = {
-                ingredient: ingredientName,
-                quantity: ingredient.quantity
-                  ? parseInt(ingredient.quantity)
-                  : null,
-                isBoolean: !ingredient.quantity, // Mark as boolean if no quantity
-              };
+      if (!mealId || mealId === "eatout" || mealId === "leftovers") return;
+      const meal = mealsMap.get(mealId);
+      if (meal) {
+        meal.ingredients.forEach((ingredient) => {
+          const ingredientName = ingredient.name;
+          const key = ingredientName.toLowerCase();
+          if (shoppingList[key]) {
+            // If ingredient has a quantity, add it
+            if (ingredient.quantity) {
+              shoppingList[key].quantity += parseInt(ingredient.quantity);
             }
-          });
-          if (meal.hasVeggieSide) {
-            veggieCount++;
+            // If no quantity, it's a boolean item - no need to increment
+          } else {
+            shoppingList[key] = {
+              ingredient: ingredientName,
+              quantity: ingredient.quantity
+                ? parseInt(ingredient.quantity)
+                : null,
+              isBoolean: !ingredient.quantity, // Mark as boolean if no quantity
+            };
           }
+        });
+        if (meal.hasVeggieSide) {
+          veggieCount++;
         }
       }
     });
@@ -83,7 +185,9 @@ function MealPlan({ mealsMap }) {
     // If both are the same type, sort alphabetically
     return a.ingredient.localeCompare(b.ingredient);
   });
-  const meals = Array.from(mealsMap.values());
+  const meals = Array.from(mealsMap.values()).sort((a, b) =>
+    a.title.localeCompare(b.title)
+  );
 
   if (meals.length === 0) {
     return (
@@ -94,20 +198,210 @@ function MealPlan({ mealsMap }) {
     );
   }
 
+  // Helper to get the next Wednesday through Monday for invites
+  const getNextWednesdayToMonday = () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Find next Wednesday
+    const nextWednesday = new Date(tomorrow);
+    const daysUntilWednesday = (10 - tomorrow.getDay()) % 7; // 3 = Wednesday
+    nextWednesday.setDate(tomorrow.getDate() + daysUntilWednesday);
+
+    // Find the Monday after that Wednesday
+    const nextMonday = new Date(nextWednesday);
+    nextMonday.setDate(nextWednesday.getDate() + 5); // Wednesday + 5 = Monday
+
+    return { nextWednesday, nextMonday };
+  };
+
+  // Helper to generate .ics content for a meal event
+  function generateICS(mealTitle, date, emails) {
+    // Format date to YYYYMMDDTHHMMSSZ (UTC)
+    const pad = (n) => n.toString().padStart(2, "0");
+    const start = new Date(date);
+    start.setHours(18, 0, 0, 0); // 6pm local
+    const end = new Date(start);
+    end.setHours(19, 0, 0, 0); // 1 hour later
+    const formatICSDate = (d) =>
+      `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(
+        d.getUTCDate()
+      )}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
+    const dtStart = formatICSDate(start);
+    const dtEnd = formatICSDate(end);
+    const uid = `${mealTitle.replace(/\s+/g, "-")}-${dtStart}@mealprep`;
+    const attendees = emails
+      .map((email) => `ATTENDEE;CN=${email};RSVP=TRUE:mailto:${email}`)
+      .join("\n");
+    return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//MealPrep//EN\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${dtStart}\nDTSTART:${dtStart}\nDTEND:${dtEnd}\nSUMMARY:${toTitleCase(
+      mealTitle
+    )}\n${attendees}\nEND:VEVENT\nEND:VCALENDAR`;
+  }
+
+  // Send calendar invites via Google Calendar API
+  async function handleSendInvites() {
+    const { nextWednesday, nextMonday } = getNextWednesdayToMonday();
+
+    // Create a map of planned meals to their dates
+    const plannedMeals = [];
+    days.forEach((day) => {
+      const mealId = weeklyPlan[day.key];
+      if (mealId && mealId !== "eatout" && mealId !== "leftovers") {
+        const meal = mealsMap.get(mealId);
+        if (meal) {
+          plannedMeals.push({
+            meal,
+            date: day.date,
+          });
+        }
+      }
+    });
+
+    // Assign meals to the next Wednesday through Monday
+    const inviteDates = [];
+    const currentDate = new Date(nextWednesday);
+    while (currentDate <= nextMonday) {
+      inviteDates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Prepare events for Google Calendar API
+    const events = [];
+    plannedMeals.forEach((plannedMeal, index) => {
+      const inviteDate = inviteDates[index % inviteDates.length];
+      events.push({
+        title: toTitleCase(plannedMeal.meal.title),
+        date: inviteDate.toISOString(),
+        attendees: emails,
+        description: `Meal prep for ${toTitleCase(plannedMeal.meal.title)}`,
+      });
+    });
+
+    try {
+      const response = await fetch("/api/calendar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ events }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(
+          `Success! ${result.message}\n\nEvents created:\n${result.events
+            .map(
+              (event) =>
+                `• ${event.title} - ${new Date(
+                  event.date
+                ).toLocaleDateString()}`
+            )
+            .join("\n")}`
+        );
+      } else {
+        alert(`Error creating calendar events: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Error sending invites:", error);
+      alert("Failed to send calendar invites. Please try again.");
+    }
+
+    setShowInviteModal(false);
+  }
+
+  // Add email to the list
+  function handleAddEmail(e) {
+    e.preventDefault();
+    const val = emailInput.trim();
+    if (val && !emails.includes(val)) {
+      setEmails([...emails, val]);
+      setEmailInput("");
+    }
+  }
+
+  // Remove email from the list
+  function handleRemoveEmail(email) {
+    setEmails(emails.filter((e) => e !== email));
+  }
+
   return (
     <div>
       <h2>Weekly Meal Plan</h2>
 
-      <div className="meal-plan-grid">
-        {days.map(({ key, label }) => (
-          <div key={key} className="week-day">
-            <h3>{label}</h3>
+      <div className="meal-plan-input">
+        <label htmlFor="planType">Meal Planning Type:</label>
+        <select
+          id="planType"
+          value={planType}
+          onChange={(e) => setPlanType(e.target.value)}
+          className="form-control"
+          style={{ marginLeft: "10px" }}
+        >
+          <option value="weeknights">M-F Weeknight Meal Planning</option>
+          <option value="fullweek">Sun-Saturday All Week Meal Planning</option>
+          <option value="custom">Custom Start/Stop Days</option>
+        </select>
+      </div>
+
+      {planType === "custom" && (
+        <div className="custom-days-input" style={{ marginTop: "10px" }}>
+          <label htmlFor="customStartDay">Start Day:</label>
+          <select
+            id="customStartDay"
+            value={customStartDay}
+            onChange={(e) => setCustomStartDay(e.target.value)}
+            className="form-control"
+            style={{ marginLeft: "10px", marginRight: "20px" }}
+          >
+            {Object.entries(DAY_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+
+          <label htmlFor="customEndDay">End Day:</label>
+          <select
+            id="customEndDay"
+            value={customEndDay}
+            onChange={(e) => setCustomEndDay(e.target.value)}
+            className="form-control"
+            style={{ marginLeft: "10px" }}
+          >
+            {Object.entries(DAY_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="meal-plan-grid compact">
+        {days.map(({ key, label, date }) => (
+          <div key={key} className="week-day compact">
+            <h4>{label}</h4>
+            {date && (
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  color: "#666",
+                  marginBottom: "5px",
+                }}
+              >
+                {date.toLocaleDateString()}
+              </div>
+            )}
             <select
-              className="form-control"
+              className="form-control compact"
               value={weeklyPlan[key] || ""}
               onChange={(e) => handleMealSelect(key, e.target.value)}
             >
-              <option value="">Select a meal</option>
+              <option value="">Select</option>
+              <option value="eatout">Eat Out</option>
+              <option value="leftovers">Leftovers</option>
               {meals.map((meal) => (
                 <option key={meal.id} value={meal.id}>
                   {toTitleCase(meal.title)}
@@ -127,7 +421,7 @@ function MealPlan({ mealsMap }) {
                 <span>
                   {item.isBoolean ? (
                     <span style={{ color: "#666", fontStyle: "italic" }}>
-                      {toTitleCase(item.ingredient)} (one needed)
+                      {toTitleCase(item.ingredient)}
                     </span>
                   ) : (
                     <>
@@ -159,7 +453,109 @@ function MealPlan({ mealsMap }) {
         <PrepCalendar
           selectedMeals={weeklyPlan}
           prepInstructions={prepInstructions}
+          mealsMap={mealsMap}
+          days={days}
         />
+      )}
+
+      {/* Calendar Invite Button and Modal */}
+      <div style={{ marginTop: 32, textAlign: "center" }}>
+        <button
+          className="btn btn-primary"
+          onClick={() => setShowInviteModal(true)}
+          style={{ fontSize: "1.1rem", padding: "12px 32px" }}
+        >
+          Send Calendar Invites
+        </button>
+      </div>
+      {showInviteModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.3)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 32,
+              minWidth: 320,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+              position: "relative",
+            }}
+          >
+            <h3 style={{ marginBottom: 16 }}>Send Calendar Invites</h3>
+            <form onSubmit={handleAddEmail} style={{ marginBottom: 16 }}>
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="Add email address"
+                style={{ padding: 8, width: 200, marginRight: 8 }}
+              />
+              <button type="submit" className="btn btn-primary btn-sm">
+                Add
+              </button>
+            </form>
+            <div style={{ marginBottom: 16 }}>
+              {emails.map((email) => (
+                <span
+                  key={email}
+                  style={{
+                    display: "inline-block",
+                    background: "#f0f0f0",
+                    borderRadius: 8,
+                    padding: "4px 12px",
+                    margin: "0 8px 8px 0",
+                  }}
+                >
+                  {email}
+                  {emails.length > 1 && (
+                    <button
+                      onClick={() => handleRemoveEmail(email)}
+                      style={{
+                        marginLeft: 8,
+                        background: "none",
+                        border: "none",
+                        color: "#dc3545",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                      }}
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                className="btn btn-secondary"
+                style={{ marginRight: 12 }}
+                onClick={() => setShowInviteModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSendInvites}
+                disabled={emails.length === 0}
+              >
+                Send Invites
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

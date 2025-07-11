@@ -1,4 +1,4 @@
-node_modules/
+dist/
 google-credentials.json
-meals.db
-dist
+.vite/
+node_modules/

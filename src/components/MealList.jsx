@@ -31,10 +31,19 @@ function MealList({ mealsMap, onMealDeleted }) {
   };
 
   const handleEdit = (meal) => {
-    debugger;
+    // If editing a different meal, close the current edit first
+    if (editingMeal && editingMeal.id !== meal.id) {
+      handleCancelEdit();
+    }
+
     setEditingMeal(meal);
     setEditTitle(meal.title);
-    setEditIngredients([...meal.ingredients]);
+    // Ensure ingredients have the correct structure
+    const normalizedIngredients = meal.ingredients.map((ing) => ({
+      quantity: ing.quantity || "",
+      name: ing.name || "",
+    }));
+    setEditIngredients(normalizedIngredients);
     setEditHasVeggieSide(meal.hasVeggieSide || false);
   };
 
@@ -73,7 +82,7 @@ function MealList({ mealsMap, onMealDeleted }) {
     }
 
     const validIngredients = editIngredients.filter((ing) =>
-      (ing.name || ing.ingredient || "").trim()
+      (ing.name || "").trim()
     );
     if (validIngredients.length === 0) {
       alert("Please add at least one ingredient");
@@ -87,7 +96,7 @@ function MealList({ mealsMap, onMealDeleted }) {
         title: editTitle.trim(),
         ingredients: validIngredients.map((ing) => ({
           quantity: ing.quantity.trim() || null,
-          name: (ing.name || ing.ingredient || "").trim().toLowerCase(),
+          name: (ing.name || "").trim().toLowerCase(),
         })),
         hasVeggieSide: editHasVeggieSide,
       };
@@ -133,147 +142,159 @@ function MealList({ mealsMap, onMealDeleted }) {
       <div>
         {meals.map((meal) => (
           <div key={meal.id} className="meal-card">
-            <div className="meal-title">{toTitleCase(meal.title)}</div>
-            <div>
-              {meal.ingredients.map((ingredient, index) => (
-                <div key={index} className="ingredient">
-                  {ingredient.quantity && (
-                    <span className="ingredient-quantity">
-                      {ingredient.quantity}
-                    </span>
-                  )}
-                  <span>
-                    {toTitleCase(ingredient.name || ingredient.ingredient)}
-                  </span>
-                </div>
-              ))}
-            </div>
-            {meal.hasVeggieSide && (
-              <div style={{ marginTop: "10px" }}>
-                <span className="veggie-badge">Veggie Side</span>
+            {editingMeal && editingMeal.id === meal.id ? (
+              // Edit form
+              <div className="content">
+                <h3>Edit Meal: {toTitleCase(editingMeal.title)}</h3>
+                <form onSubmit={handleSaveEdit}>
+                  <div className="form-group">
+                    <label htmlFor="edit-title">Meal Title</label>
+                    <input
+                      type="text"
+                      id="edit-title"
+                      className="form-control"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="e.g., Bean Salad"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Ingredients</label>
+                    <p
+                      style={{
+                        fontSize: "0.9rem",
+                        color: "#666",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      Leave quantity empty for items like salt, pepper, olive
+                      oil that you only need one of.
+                    </p>
+                    <div className="ingredient-list">
+                      {editIngredients.map((ingredient, index) => (
+                        <div key={index} className="ingredient-item">
+                          <input
+                            type="number"
+                            className="form-control quantity-input"
+                            placeholder="Qty"
+                            value={ingredient.quantity}
+                            onChange={(e) =>
+                              updateEditIngredient(
+                                index,
+                                "quantity",
+                                e.target.value
+                              )
+                            }
+                          />
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Ingredient (e.g., can of chickpeas, salt, olive oil)"
+                            value={ingredient.name}
+                            onChange={(e) =>
+                              updateEditIngredient(
+                                index,
+                                "name",
+                                e.target.value
+                              )
+                            }
+                            required
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm"
+                            onClick={() => removeEditIngredient(index)}
+                            disabled={editIngredients.length === 1}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={addEditIngredient}
+                      style={{ marginTop: "10px" }}
+                    >
+                      Add Ingredient
+                    </button>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="veggie-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={editHasVeggieSide}
+                        onChange={(e) => setEditHasVeggieSide(e.target.checked)}
+                      />
+                      Veggie Side
+                    </label>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={editLoading}
+                    >
+                      {editLoading ? "Saving..." : "Save Changes"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleCancelEdit}
+                      disabled={editLoading}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               </div>
+            ) : (
+              // Normal meal display
+              <>
+                <div className="meal-title">{toTitleCase(meal.title)}</div>
+                <div>
+                  {meal.ingredients.map((ingredient, index) => (
+                    <div key={index} className="ingredient">
+                      {ingredient.quantity && (
+                        <span className="ingredient-quantity">
+                          {ingredient.quantity}
+                        </span>
+                      )}
+                      <span>{toTitleCase(ingredient.name)}</span>
+                    </div>
+                  ))}
+                </div>
+                {meal.hasVeggieSide && (
+                  <div style={{ marginTop: "10px" }}>
+                    <span className="veggie-badge">Veggie Side</span>
+                  </div>
+                )}
+                <div
+                  style={{ marginTop: "10px", display: "flex", gap: "10px" }}
+                >
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleEdit(meal)}
+                  >
+                    Edit Meal
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => handleDelete(meal.id)}
+                  >
+                    Delete Meal
+                  </button>
+                </div>
+              </>
             )}
-            <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleEdit(meal)}
-              >
-                Edit Meal
-              </button>
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => handleDelete(meal.id)}
-              >
-                Delete Meal
-              </button>
-            </div>
           </div>
         ))}
       </div>
-
-      {editingMeal && (
-        <div className="content" style={{ marginTop: "20px" }}>
-          <h3>Edit Meal: {toTitleCase(editingMeal.title)}</h3>
-          <form onSubmit={handleSaveEdit}>
-            <div className="form-group">
-              <label htmlFor="edit-title">Meal Title</label>
-              <input
-                type="text"
-                id="edit-title"
-                className="form-control"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                placeholder="e.g., Bean Salad"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Ingredients</label>
-              <p
-                style={{
-                  fontSize: "0.9rem",
-                  color: "#666",
-                  marginBottom: "10px",
-                }}
-              >
-                Leave quantity empty for items like salt, pepper, olive oil that
-                you only need one of.
-              </p>
-              <div className="ingredient-list">
-                {editIngredients.map((ingredient, index) => (
-                  <div key={index} className="ingredient-item">
-                    <input
-                      type="number"
-                      className="form-control quantity-input"
-                      placeholder="Qty"
-                      value={ingredient.quantity}
-                      onChange={(e) =>
-                        updateEditIngredient(index, "quantity", e.target.value)
-                      }
-                    />
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Ingredient (e.g., can of chickpeas, salt, olive oil)"
-                      value={ingredient.name || ingredient.ingredient || ""}
-                      onChange={(e) =>
-                        updateEditIngredient(index, "name", e.target.value)
-                      }
-                      required
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      onClick={() => removeEditIngredient(index)}
-                      disabled={editIngredients.length === 1}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={addEditIngredient}
-                style={{ marginTop: "10px" }}
-              >
-                Add Ingredient
-              </button>
-            </div>
-
-            <div className="form-group">
-              <label className="veggie-checkbox">
-                <input
-                  type="checkbox"
-                  checked={editHasVeggieSide}
-                  onChange={(e) => setEditHasVeggieSide(e.target.checked)}
-                />
-                Veggie Side
-              </label>
-            </div>
-
-            <div style={{ display: "flex", gap: "10px" }}>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={editLoading}
-              >
-                {editLoading ? "Saving..." : "Save Changes"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleCancelEdit}
-                disabled={editLoading}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

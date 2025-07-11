@@ -232,6 +232,26 @@ body {
   margin-top: 20px;
 }
 
+.meal-plan-grid.compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.meal-plan-input {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 10px;
+}
+
+.meal-plan-input label {
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
 .week-day {
   background: #f8f9fa;
   border-radius: 10px;
@@ -239,11 +259,45 @@ body {
   border: 1px solid #e9ecef;
 }
 
+.week-day.compact {
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  min-width: 120px;
+  flex: 1;
+}
+
 .week-day h3 {
   margin-bottom: 15px;
   color: #333;
   border-bottom: 2px solid #667eea;
   padding-bottom: 8px;
+}
+
+.week-day.compact h4 {
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 0.9rem;
+  text-align: center;
+  font-weight: 600;
+  border-bottom: 1px solid #667eea;
+  padding-bottom: 4px;
+}
+
+.form-control.compact {
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  min-width: 100px;
+}
+
+/* Capitalize day names */
+.week-day.compact h4 {
+  text-transform: capitalize;
+}
+
+.calendar-day h4 {
+  text-transform: capitalize;
 }
 
 .shopping-list {
