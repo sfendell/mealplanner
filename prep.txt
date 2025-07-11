@@ -1,0 +1,22 @@
+chicken breast:defrost chicken breast
+chicken thigh:defrost chicken thighs
+salmon:defrost salmon
+cucumber:chop cucumber
+onion:chop onion
+bell pepper:chop bell pepper
+carrots:chop carrots
+zucchini:chop zucchini
+potato:wash and chop potatoes
+broccoli:wash and chop broccoli
+tomato:chop tomato
+avocado:chop avocado
+spinach:wash spinach
+seaweed:cut seaweed sheets
+edamame:thaw edamame
+water chestnuts:drain water chestnuts
+chickpeas:drain and rinse chickpeas
+black beans:drain and rinse black beans
+kidney beans:drain and rinse kidney beans
+garlic:mince garlic
+ginger:mince ginger
+blackening seasoning:prepare blackening seasoning 
