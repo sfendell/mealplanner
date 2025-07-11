@@ -13,12 +13,22 @@ const PORT = process.env.PORT || 5001;
 // Google Calendar API configuration
 const SCOPES = ["https://www.googleapis.com/auth/calendar"];
 
+// Load Google OAuth credentials from JSON file
+let credentials;
+try {
+  credentials = require("../google-credentials.json");
+} catch (error) {
+  console.error("Error loading Google credentials:", error.message);
+  credentials = null;
+}
+
 // OAuth 2.0 configuration
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || credentials?.web?.client_id;
+const CLIENT_SECRET =
+  process.env.GOOGLE_CLIENT_SECRET || credentials?.web?.client_secret;
 const REDIRECT_URI =
   process.env.GOOGLE_REDIRECT_URI ||
-  "http://127.0.0.1:5001/auth/google/callback";
+  "http://localhost:5001/auth/google/callback";
 
 // Store tokens in memory (in production, use a database)
 let tokens = null;
@@ -39,6 +49,7 @@ function getAuthClient() {
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "..")));
 
 // Database setup
 const dbPath = process.env.DATABASE_URL || "./meals.db";
@@ -220,16 +231,11 @@ app.get("/auth/google/callback", async (req, res) => {
     // Store tokens (in production, save to database)
     console.log("Authentication successful!");
 
-    res.json({
-      success: true,
-      message: "Authentication successful! You can now use the calendar API.",
-    });
+    // Redirect to auth page with success parameter
+    res.redirect("/auth.html?success=true");
   } catch (error) {
     console.error("Error getting tokens:", error);
-    res.status(500).json({
-      error: "Authentication failed",
-      details: error.message,
-    });
+    res.redirect("/auth.html?error=true");
   }
 });
 
@@ -238,6 +244,10 @@ app.get("/auth/status", (req, res) => {
     authenticated: !!tokens,
     hasRefreshToken: !!(tokens && tokens.refresh_token),
   });
+});
+
+app.get("/auth", (req, res) => {
+  res.sendFile(path.join(__dirname, "../auth.html"));
 });
 
 // Routes

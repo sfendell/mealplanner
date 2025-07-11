@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Google Calendar Authentication</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+          "Helvetica Neue", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        color: #333;
+      }
+      .container {
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+      }
+      h1 {
+        color: #667eea;
+        margin-bottom: 20px;
+      }
+      .btn {
+        background: #667eea;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s ease;
+      }
+      .btn:hover {
+        background: #5a6fd8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+      }
+      .status {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 8px;
+        font-weight: 600;
+      }
+      .status.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .instructions {
+        margin: 20px 0;
+        color: #666;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Google Calendar Authentication</h1>
+
+      <div class="instructions">
+        <p>
+          To use the calendar invite feature, you need to authenticate with your
+          Google account.
+        </p>
+        <p>
+          This will allow the app to create calendar events and send invites to
+          your meal planning team.
+        </p>
+      </div>
+
+      <a href="/auth/google" class="btn">Sign in with Google</a>
+
+      <div id="status"></div>
+    </div>
+
+    <script>
+      // Check authentication status on page load
+      async function checkAuthStatus() {
+        try {
+          const response = await fetch("/auth/status");
+          const data = await response.json();
+
+          const statusDiv = document.getElementById("status");
+          if (data.authenticated) {
+            statusDiv.innerHTML =
+              '<div class="status success">✅ Authentication successful! You can now use calendar features.</div>';
+          } else {
+            statusDiv.innerHTML =
+              '<div class="status error">❌ Not authenticated. Please sign in with Google above.</div>';
+          }
+        } catch (error) {
+          console.error("Error checking auth status:", error);
+        }
+      }
+
+      // Check status on page load
+      checkAuthStatus();
+
+      // Check if we're returning from OAuth callback
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("success") === "true") {
+        document.getElementById("status").innerHTML =
+          '<div class="status success">✅ Authentication successful! You can now use calendar features.</div>';
+      } else if (urlParams.get("error") === "true") {
+        document.getElementById("status").innerHTML =
+          '<div class="status error">❌ Authentication failed. Please try again.</div>';
+      }
+    </script>
+  </body>
+</html>
