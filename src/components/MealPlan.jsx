@@ -317,8 +317,8 @@ function MealPlan({ mealsMap }) {
           className="form-control"
           style={{ marginLeft: "10px" }}
         >
-          <option value="weeknights">M-F Weeknight Meal Planning</option>
-          <option value="fullweek">Sun-Saturday All Week Meal Planning</option>
+          <option value="weeknights">Weeknight Meal Planning</option>
+          <option value="fullweek">All Week Meal Planning</option>
           <option value="custom">Custom Start/Stop Days</option>
         </select>
       </div>
