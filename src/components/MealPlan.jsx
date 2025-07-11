@@ -7,6 +7,17 @@ function MealPlan({ mealsMap }) {
   const [planType, setPlanType] = useState("weeknights"); // weeknights, fullweek, custom
   const [customStartDay, setCustomStartDay] = useState("monday");
   const [customEndDay, setCustomEndDay] = useState("friday");
+
+  // Initialize start/end days based on plan type
+  useEffect(() => {
+    if (planType === "weeknights") {
+      setCustomStartDay("monday");
+      setCustomEndDay("friday");
+    } else if (planType === "fullweek") {
+      setCustomStartDay("sunday");
+      setCustomEndDay("saturday");
+    }
+  }, [planType]);
   const [weeklyPlan, setWeeklyPlan] = useState({
     monday: null,
     tuesday: null,
@@ -41,92 +52,59 @@ function MealPlan({ mealsMap }) {
 
     let days = [];
 
-    if (planType === "weeknights") {
-      // M-F weeknight planning (next Monday through Friday)
-      const nextMonday = new Date(tomorrow);
-      const daysUntilMonday = (8 - tomorrow.getDay()) % 7;
-      nextMonday.setDate(tomorrow.getDate() + daysUntilMonday);
+    // Always use the current start/end day values
+    const startDayIndex = dayKeys.indexOf(customStartDay);
+    const endDayIndex = dayKeys.indexOf(customEndDay);
 
-      for (let i = 0; i < 5; i++) {
-        const date = new Date(nextMonday);
-        date.setDate(nextMonday.getDate() + i);
-        const dayIndex = date.getDay();
-        const dayKey = dayKeys[dayIndex];
-        const dayLabel = dayLabels[dayIndex];
-        days.push({ key: dayKey, label: dayLabel, date });
-      }
-    } else if (planType === "fullweek") {
-      // Sun-Saturday all week planning (next Sunday through Saturday)
-      const nextSunday = new Date(tomorrow);
-      const daysUntilSunday = (7 - tomorrow.getDay()) % 7;
-      nextSunday.setDate(tomorrow.getDate() + daysUntilSunday);
+    let currentDate = new Date(tomorrow);
+    let daysAdded = 0;
+    const maxDays = 14; // Prevent infinite loops
 
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(nextSunday);
-        date.setDate(nextSunday.getDate() + i);
-        const dayIndex = date.getDay();
-        const dayKey = dayKeys[dayIndex];
-        const dayLabel = dayLabels[dayIndex];
-        days.push({ key: dayKey, label: dayLabel, date });
-      }
-    } else if (planType === "custom") {
-      // Custom start/stop days
-      const startDayIndex = dayKeys.indexOf(customStartDay);
-      const endDayIndex = dayKeys.indexOf(customEndDay);
+    while (daysAdded < maxDays) {
+      const dayIndex = currentDate.getDay();
+      const dayKey = dayKeys[dayIndex];
+      const dayLabel = dayLabels[dayIndex];
 
-      let currentDate = new Date(tomorrow);
-      let daysAdded = 0;
-      const maxDays = 14; // Prevent infinite loops
+      if (dayKey === customStartDay) {
+        // Start collecting days from the start day
+        let tempDays = [];
+        let tempDate = new Date(currentDate);
 
-      while (daysAdded < maxDays) {
-        const dayIndex = currentDate.getDay();
-        const dayKey = dayKeys[dayIndex];
-        const dayLabel = dayLabels[dayIndex];
+        // If start and end day are the same, do 8 days instead of 1
+        const daysToCollect = customStartDay === customEndDay ? 8 : 7;
 
-        if (dayKey === customStartDay) {
-          // Start collecting days from the start day
-          let tempDays = [];
-          let tempDate = new Date(currentDate);
+        for (let i = 0; i < daysToCollect; i++) {
+          const tempDayIndex = tempDate.getDay();
+          const tempDayKey = dayKeys[tempDayIndex];
+          const tempDayLabel = dayLabels[tempDayIndex];
 
-          // If start and end day are the same, do 8 days instead of 1
-          const daysToCollect = customStartDay === customEndDay ? 8 : 7;
+          tempDays.push({
+            key: tempDayKey,
+            label: tempDayLabel,
+            date: new Date(tempDate),
+          });
 
-          for (let i = 0; i < daysToCollect; i++) {
-            const tempDayIndex = tempDate.getDay();
-            const tempDayKey = dayKeys[tempDayIndex];
-            const tempDayLabel = dayLabels[tempDayIndex];
-
-            tempDays.push({
-              key: tempDayKey,
-              label: tempDayLabel,
-              date: new Date(tempDate),
-            });
-
-            // If start and end are different, stop when we reach the end day
-            if (
-              customStartDay !== customEndDay &&
-              tempDayKey === customEndDay
-            ) {
-              days = tempDays;
-              break;
-            }
-
-            tempDate.setDate(tempDate.getDate() + 1);
-          }
-
-          // If we collected all days (either 8 for same day or reached end day), set the days
-          if (
-            tempDays.length === daysToCollect ||
-            (customStartDay !== customEndDay && tempDays.length > 0)
-          ) {
+          // If start and end are different, stop when we reach the end day
+          if (customStartDay !== customEndDay && tempDayKey === customEndDay) {
             days = tempDays;
+            break;
           }
-          break;
+
+          tempDate.setDate(tempDate.getDate() + 1);
         }
 
-        currentDate.setDate(currentDate.getDate() + 1);
-        daysAdded++;
+        // If we collected all days (either 8 for same day or reached end day), set the days
+        if (
+          tempDays.length === daysToCollect ||
+          (customStartDay !== customEndDay && tempDays.length > 0)
+        ) {
+          days = tempDays;
+        }
+        break;
       }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+      daysAdded++;
     }
 
     return days;
@@ -345,39 +323,70 @@ function MealPlan({ mealsMap }) {
         </select>
       </div>
 
-      {planType === "custom" && (
-        <div className="custom-days-input" style={{ marginTop: "10px" }}>
-          <label htmlFor="customStartDay">Start Day:</label>
-          <select
-            id="customStartDay"
-            value={customStartDay}
-            onChange={(e) => setCustomStartDay(e.target.value)}
-            className="form-control"
-            style={{ marginLeft: "10px", marginRight: "20px" }}
-          >
-            {Object.entries(DAY_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
+      <div
+        className="custom-days-input"
+        style={{
+          marginTop: "10px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+        }}
+      >
+        <label
+          htmlFor="customStartDay"
+          style={{ margin: 0, fontSize: "0.9rem" }}
+        >
+          Start Day:
+        </label>
+        <select
+          id="customStartDay"
+          value={customStartDay}
+          onChange={(e) => {
+            setCustomStartDay(e.target.value);
+            // Switch to custom if user changes from preset values
+            if (
+              (planType === "weeknights" && e.target.value !== "monday") ||
+              (planType === "fullweek" && e.target.value !== "sunday")
+            ) {
+              setPlanType("custom");
+            }
+          }}
+          className="form-control"
+          style={{ width: "80px", padding: "6px 8px", fontSize: "0.8rem" }}
+        >
+          {Object.entries(DAY_LABELS).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
 
-          <label htmlFor="customEndDay">End Day:</label>
-          <select
-            id="customEndDay"
-            value={customEndDay}
-            onChange={(e) => setCustomEndDay(e.target.value)}
-            className="form-control"
-            style={{ marginLeft: "10px" }}
-          >
-            {Object.entries(DAY_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+        <label htmlFor="customEndDay" style={{ margin: 0, fontSize: "0.9rem" }}>
+          End Day:
+        </label>
+        <select
+          id="customEndDay"
+          value={customEndDay}
+          onChange={(e) => {
+            setCustomEndDay(e.target.value);
+            // Switch to custom if user changes from preset values
+            if (
+              (planType === "weeknights" && e.target.value !== "friday") ||
+              (planType === "fullweek" && e.target.value !== "saturday")
+            ) {
+              setPlanType("custom");
+            }
+          }}
+          className="form-control"
+          style={{ width: "80px", padding: "6px 8px", fontSize: "0.8rem" }}
+        >
+          {Object.entries(DAY_LABELS).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="meal-plan-grid compact">
         {days.map(({ key, label, date }) => (

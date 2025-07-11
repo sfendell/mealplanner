@@ -10,11 +10,11 @@ export const DAY_NAMES = {
 };
 
 export const DAY_LABELS = {
-  sunday: "sun",
-  monday: "mon",
-  tuesday: "tue",
-  wednesday: "wed",
-  thursday: "thu",
-  friday: "fri",
-  saturday: "sat",
+  sunday: "Sun",
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
 };
