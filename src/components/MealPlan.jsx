@@ -176,24 +176,6 @@ function MealPlan({ mealsMap }) {
     );
   }
 
-  // Helper to get the next Wednesday through Monday for invites
-  const getNextWednesdayToMonday = () => {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    // Find next Wednesday
-    const nextWednesday = new Date(tomorrow);
-    const daysUntilWednesday = (10 - tomorrow.getDay()) % 7; // 3 = Wednesday
-    nextWednesday.setDate(tomorrow.getDate() + daysUntilWednesday);
-
-    // Find the Monday after that Wednesday
-    const nextMonday = new Date(nextWednesday);
-    nextMonday.setDate(nextWednesday.getDate() + 5); // Wednesday + 5 = Monday
-
-    return { nextWednesday, nextMonday };
-  };
-
   // Helper to generate .ics content for a meal event
   function generateICS(mealTitle, date, emails) {
     // Format date to YYYYMMDDTHHMMSSZ (UTC)
@@ -219,9 +201,7 @@ function MealPlan({ mealsMap }) {
 
   // Send calendar invites via Google Calendar API
   async function handleSendInvites() {
-    const { nextWednesday, nextMonday } = getNextWednesdayToMonday();
-
-    // Create a map of planned meals to their dates
+    // Create a map of planned meals to their actual displayed dates
     const plannedMeals = [];
     days.forEach((day) => {
       const mealId = weeklyPlan[day.key];
@@ -236,21 +216,12 @@ function MealPlan({ mealsMap }) {
       }
     });
 
-    // Assign meals to the next Wednesday through Monday
-    const inviteDates = [];
-    const currentDate = new Date(nextWednesday);
-    while (currentDate <= nextMonday) {
-      inviteDates.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    // Prepare events for Google Calendar API
+    // Prepare events for Google Calendar API using the actual displayed dates
     const events = [];
-    plannedMeals.forEach((plannedMeal, index) => {
-      const inviteDate = inviteDates[index % inviteDates.length];
+    plannedMeals.forEach((plannedMeal) => {
       events.push({
         title: toTitleCase(plannedMeal.meal.title),
-        date: inviteDate.toISOString(),
+        date: plannedMeal.date.toISOString(),
         attendees: emails,
         description: `Meal prep for ${toTitleCase(plannedMeal.meal.title)}`,
       });
