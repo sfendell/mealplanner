@@ -201,29 +201,44 @@ function MealPlan({ mealsMap }) {
 
   // Send calendar invites via Google Calendar API
   async function handleSendInvites() {
-    // Create a map of planned meals to their actual displayed dates
-    const plannedMeals = [];
+    // Create a map of all planned days to their actual displayed dates
+    const plannedDays = [];
     days.forEach((day) => {
       const mealId = weeklyPlan[day.key];
-      if (mealId && mealId !== "eatout" && mealId !== "leftovers") {
-        const meal = mealsMap.get(mealId);
-        if (meal) {
-          plannedMeals.push({
-            meal,
+      if (mealId) {
+        if (mealId === "eatout") {
+          plannedDays.push({
+            title: "Eat Out",
             date: day.date,
+            description: "Eating out tonight",
           });
+        } else if (mealId === "leftovers") {
+          plannedDays.push({
+            title: "Leftovers",
+            date: day.date,
+            description: "Having leftovers tonight",
+          });
+        } else {
+          const meal = mealsMap.get(mealId);
+          if (meal) {
+            plannedDays.push({
+              title: toTitleCase(meal.title),
+              date: day.date,
+              description: `Meal prep for ${toTitleCase(meal.title)}`,
+            });
+          }
         }
       }
     });
 
     // Prepare events for Google Calendar API using the actual displayed dates
     const events = [];
-    plannedMeals.forEach((plannedMeal) => {
+    plannedDays.forEach((plannedDay) => {
       events.push({
-        title: toTitleCase(plannedMeal.meal.title),
-        date: plannedMeal.date.toISOString(),
+        title: plannedDay.title,
+        date: plannedDay.date.toISOString(),
         attendees: emails,
-        description: `Meal prep for ${toTitleCase(plannedMeal.meal.title)}`,
+        description: plannedDay.description,
       });
     });
 
