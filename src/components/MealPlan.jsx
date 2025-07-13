@@ -231,6 +231,9 @@ function MealPlan({ mealsMap }) {
       }
     });
 
+    // Get user's timezone
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     // Prepare events for Google Calendar API using the actual displayed dates
     const events = [];
     plannedDays.forEach((plannedDay) => {
@@ -239,6 +242,7 @@ function MealPlan({ mealsMap }) {
         date: plannedDay.date.toISOString(),
         attendees: emails,
         description: plannedDay.description,
+        timezone: userTimezone,
       });
     });
 

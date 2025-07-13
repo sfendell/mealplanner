@@ -408,12 +408,18 @@ app.post("/api/calendar", async (req, res) => {
     const createdEvents = [];
 
     for (const event of events) {
-      const { title, date, attendees, description = "" } = event;
+      const {
+        title,
+        date,
+        attendees,
+        description = "",
+        timezone = "America/New_York",
+      } = event;
 
       // Convert date string to Date object
       const eventDate = new Date(date);
 
-      // Set event time to 6 PM
+      // Set event time to 6 PM in the user's timezone
       eventDate.setHours(18, 0, 0, 0);
 
       const endDate = new Date(eventDate);
@@ -424,11 +430,11 @@ app.post("/api/calendar", async (req, res) => {
         description: description,
         start: {
           dateTime: eventDate.toISOString(),
-          timeZone: "America/New_York", // Adjust timezone as needed
+          timeZone: timezone,
         },
         end: {
           dateTime: endDate.toISOString(),
-          timeZone: "America/New_York",
+          timeZone: timezone,
         },
         attendees: attendees.map((email) => ({ email })),
         reminders: {
