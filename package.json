@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node server/index.js",
+    "server": "NODE_ENV=development node server/index.js",
     "vercel-build": "npm run build",
-    "start": "node server/index.js"
+    "start": "NODE_ENV=production node server/index.js"
   },
   "dependencies": {
     "@vercel/kv": "^3.0.0",

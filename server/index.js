@@ -10,6 +10,11 @@ const { OAuth2Client } = require("google-auth-library");
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Set default NODE_ENV if not provided
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = "development";
+}
+
 // Google Calendar API configuration
 const SCOPES = ["https://www.googleapis.com/auth/calendar"];
 
@@ -469,21 +474,20 @@ app.post("/api/calendar", async (req, res) => {
   }
 });
 
-// Serve static files in production
-if (process.env.NODE_ENV === "production") {
-  // Serve static files with proper MIME types
-  app.use(
-    express.static(path.join(__dirname, "../dist"), {
-      setHeaders: (res, path) => {
-        if (path.endsWith(".js") || path.endsWith(".jsx")) {
-          res.setHeader("Content-Type", "application/javascript");
-        } else if (path.endsWith(".css")) {
-          res.setHeader("Content-Type", "text/css");
-        }
-      },
-    })
-  );
+// Serve static files with proper MIME types
+app.use(
+  express.static(path.join(__dirname, "../"), {
+    setHeaders: (res, path) => {
+      if (path.endsWith(".js") || path.endsWith(".jsx")) {
+        res.setHeader("Content-Type", "application/javascript");
+      } else if (path.endsWith(".css")) {
+        res.setHeader("Content-Type", "text/css");
+      }
+    },
+  })
+);
 
+if (process.env.NODE_ENV === "production") {
   app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "../dist/index.html"));
   });
