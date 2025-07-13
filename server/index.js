@@ -419,21 +419,24 @@ app.post("/api/calendar", async (req, res) => {
       // Convert date string to Date object
       const eventDate = new Date(date);
 
-      // Set event time to 6 PM in the user's timezone
-      eventDate.setHours(18, 0, 0, 0);
+      // Get the date in the user's timezone
+      const userDateString = eventDate.toLocaleDateString("en-CA", {
+        timeZone: timezone,
+      });
 
-      const endDate = new Date(eventDate);
-      endDate.setHours(19, 0, 0, 0); // 1 hour duration
+      // Create ISO string with timezone offset for 6 PM
+      const startDateTime = `${userDateString}T18:00:00`;
+      const endDateTime = `${userDateString}T19:00:00`;
 
       const calendarEvent = {
         summary: title,
         description: description,
         start: {
-          dateTime: eventDate.toISOString(),
+          dateTime: startDateTime,
           timeZone: timezone,
         },
         end: {
-          dateTime: endDate.toISOString(),
+          dateTime: endDateTime,
           timeZone: timezone,
         },
         attendees: attendees.map((email) => ({ email })),
