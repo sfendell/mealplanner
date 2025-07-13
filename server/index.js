@@ -474,20 +474,20 @@ app.post("/api/calendar", async (req, res) => {
   }
 });
 
-// Serve static files with proper MIME types
-app.use(
-  express.static(path.join(__dirname, "../"), {
-    setHeaders: (res, path) => {
-      if (path.endsWith(".js") || path.endsWith(".jsx")) {
-        res.setHeader("Content-Type", "application/javascript");
-      } else if (path.endsWith(".css")) {
-        res.setHeader("Content-Type", "text/css");
-      }
-    },
-  })
-);
-
 if (process.env.NODE_ENV === "production") {
+  // Serve static files with proper MIME types in production
+  app.use(
+    express.static(path.join(__dirname, "../dist"), {
+      setHeaders: (res, path) => {
+        if (path.endsWith(".js") || path.endsWith(".jsx")) {
+          res.setHeader("Content-Type", "application/javascript");
+        } else if (path.endsWith(".css")) {
+          res.setHeader("Content-Type", "text/css");
+        }
+      },
+    })
+  );
+
   app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "../dist/index.html"));
   });
