@@ -475,7 +475,7 @@ if (process.env.NODE_ENV === "production") {
   app.use(
     express.static(path.join(__dirname, "../dist"), {
       setHeaders: (res, path) => {
-        if (path.endsWith(".js")) {
+        if (path.endsWith(".js") || path.endsWith(".jsx")) {
           res.setHeader("Content-Type", "application/javascript");
         } else if (path.endsWith(".css")) {
           res.setHeader("Content-Type", "text/css");
