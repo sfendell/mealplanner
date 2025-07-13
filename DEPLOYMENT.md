@@ -1,41 +1,5 @@
 # Deploy MealPrep App
 
-## Option 1: Vercel (Recommended - Free)
-
-### Steps:
-
-1. **Install Vercel CLI:**
-
-   ```bash
-   npm install -g vercel
-   ```
-
-2. **Deploy:**
-
-   ```bash
-   vercel
-   ```
-
-3. **Follow the prompts:**
-
-   - Login to Vercel (free account)
-   - Project name: `mealprep`
-   - Framework: Other
-   - Build command: `npm run build`
-   - Output directory: `dist`
-
-4. **Share the URL** with your wife!
-
-### Benefits:
-
-- ✅ **Free forever** for personal projects
-- ✅ **Automatic HTTPS**
-- ✅ **Global CDN**
-- ✅ **Custom domain** (optional)
-- ✅ **Easy updates** - just run `vercel` again
-
----
-
 ## Option 2: Railway (Alternative - Free tier)
 
 ### Steps:

@@ -54,7 +54,6 @@ function getAuthClient() {
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "..")));
 
 // Database setup
 const dbPath = process.env.DATABASE_URL || "./meals.db";
@@ -479,7 +478,7 @@ if (process.env.NODE_ENV === "production") {
   app.use(
     express.static(path.join(__dirname, "../dist"), {
       setHeaders: (res, path) => {
-        if (path.endsWith(".js") || path.endsWith(".jsx")) {
+        if (path.endsWith(".js")) {
           res.setHeader("Content-Type", "application/javascript");
         } else if (path.endsWith(".css")) {
           res.setHeader("Content-Type", "text/css");
@@ -494,7 +493,21 @@ if (process.env.NODE_ENV === "production") {
 } else {
   // In development, only handle API routes
   app.get("/", (req, res) => {
-    res.json({ message: "MealPrep API Server" });
+    res.json({
+      message: "MealPrep API Server",
+      note: "In development, access the frontend at http://localhost:5173, not this server",
+    });
+  });
+
+  // Catch any non-API routes and redirect to Vite dev server
+  app.get("*", (req, res) => {
+    if (!req.path.startsWith("/api")) {
+      res.status(404).json({
+        error: "Not found",
+        message: "In development, access the frontend at http://localhost:5173",
+        apiRoutes: "API routes are available at /api/*",
+      });
+    }
   });
 }
 
