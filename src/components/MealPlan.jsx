@@ -34,12 +34,29 @@ function MealPlan({ mealsMap }) {
     "suresh.soumya105@gmail.com",
   ]);
   const [emailInput, setEmailInput] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     fetch("/api/prep")
       .then((res) => res.json())
       .then((data) => setPrepInstructions(data))
       .catch((err) => console.error("Error fetching prep instructions:", err));
+  }, []);
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const response = await fetch("/auth/status");
+        const data = await response.json();
+        setIsAuthenticated(data.authenticated);
+      } catch (error) {
+        console.error("Error checking auth status:", error);
+        setIsAuthenticated(false);
+      }
+    };
+
+    checkAuthStatus();
   }, []);
 
   const getDaysForPlanType = () => {
@@ -294,6 +311,17 @@ function MealPlan({ mealsMap }) {
     setEmails(emails.filter((e) => e !== email));
   }
 
+  // Handle calendar invite button click
+  function handleCalendarInviteClick() {
+    if (!isAuthenticated) {
+      // Redirect to auth page if not authenticated
+      window.location.href = "/auth";
+    } else {
+      // Show modal if authenticated
+      setShowInviteModal(true);
+    }
+  }
+
   return (
     <div>
       <h2>Weekly Meal Plan</h2>
@@ -461,10 +489,12 @@ function MealPlan({ mealsMap }) {
       <div style={{ marginTop: 32, textAlign: "center" }}>
         <button
           className="btn btn-primary"
-          onClick={() => setShowInviteModal(true)}
+          onClick={handleCalendarInviteClick}
           style={{ fontSize: "1.1rem", padding: "12px 32px" }}
         >
-          Send Calendar Invites
+          {isAuthenticated
+            ? "Send Calendar Invites"
+            : "Sign in to Send Calendar Invites"}
         </button>
       </div>
       {showInviteModal && (
