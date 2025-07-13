@@ -252,16 +252,13 @@ function MealPlan({ mealsMap }) {
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     // Prepare events for Google Calendar API using the actual displayed dates
-    const events = [];
-    plannedDays.forEach((plannedDay) => {
-      events.push({
-        title: plannedDay.title,
-        date: plannedDay.date.toISOString(),
-        attendees: emails,
-        description: plannedDay.description,
-        timezone: userTimezone,
-      });
-    });
+    const events = plannedDays.map((plannedDay) => ({
+      title: plannedDay.title,
+      date: plannedDay.date.toISOString(),
+      attendees: emails,
+      description: plannedDay.description,
+      timezone: userTimezone,
+    }));
 
     try {
       const response = await fetch("/api/calendar", {
