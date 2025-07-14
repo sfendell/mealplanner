@@ -87,6 +87,17 @@ function MealPlan({ mealsMap }) {
         let tempDays = [];
         let tempDate = new Date(currentDate);
 
+        // If end day is blank, only plan for one day
+        if (!customEndDay || customEndDay === "") {
+          tempDays.push({
+            key: dayKey,
+            label: dayLabel,
+            date: new Date(tempDate),
+          });
+          days = tempDays;
+          break;
+        }
+
         // If start and end day are the same, do 8 days instead of 1
         const daysToCollect = customStartDay === customEndDay ? 8 : 7;
 
@@ -266,7 +277,14 @@ function MealPlan({ mealsMap }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ events }),
+        body: JSON.stringify({
+          events,
+          shoppingList,
+          veggieCount,
+          planType,
+          startDay: customStartDay,
+          endDay: customEndDay,
+        }),
       });
 
       const result = await response.json();
@@ -395,6 +413,7 @@ function MealPlan({ mealsMap }) {
           className="form-control"
           style={{ width: "80px", padding: "6px 8px", fontSize: "0.8rem" }}
         >
+          <option value="">Single Day</option>
           {Object.entries(DAY_LABELS).map(([key, label]) => (
             <option key={key} value={key}>
               {label}
@@ -493,6 +512,9 @@ function MealPlan({ mealsMap }) {
             ? "Send Calendar Invites"
             : "Sign in to Send Calendar Invites"}
         </button>
+        <p style={{ marginTop: 8, fontSize: "0.8rem", color: "#666" }}>
+          Send calendar invites for meal prep events with shopping list included
+        </p>
       </div>
       {showInviteModal && (
         <div
@@ -520,6 +542,10 @@ function MealPlan({ mealsMap }) {
             }}
           >
             <h3 style={{ marginBottom: 16 }}>Send Calendar Invites</h3>
+            <p style={{ marginBottom: 16, fontSize: "0.9rem", color: "#666" }}>
+              Add email addresses below to send calendar invites with shopping
+              list
+            </p>
             <form onSubmit={handleAddEmail} style={{ marginBottom: 16 }}>
               <input
                 type="email"
@@ -564,10 +590,15 @@ function MealPlan({ mealsMap }) {
                 </span>
               ))}
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "8px",
+              }}
+            >
               <button
                 className="btn btn-secondary"
-                style={{ marginRight: 12 }}
                 onClick={() => setShowInviteModal(false)}
               >
                 Cancel
@@ -577,7 +608,7 @@ function MealPlan({ mealsMap }) {
                 onClick={handleSendInvites}
                 disabled={emails.length === 0}
               >
-                Send Invites
+                Send Calendar Invites
               </button>
             </div>
           </div>

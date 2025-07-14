@@ -2,3 +2,4 @@ dist/
 google-credentials.json
 .vite/
 node_modules/
+.env
