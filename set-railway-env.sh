@@ -22,6 +22,6 @@ while IFS='=' read -r key value; do
     
     echo "Setting $key..."
     railway variables --set "$key=$value"
-done < .env
+done < .env.production
 
-echo "Done! All environment variables from .env have been set in Railway." 
+echo "Done! All environment variables from .env.production have been set in Railway." 

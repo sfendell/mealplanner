@@ -1,4 +1,12 @@
-require("dotenv").config();
+// Load environment variables based on NODE_ENV
+if (process.env.NODE_ENV === "production") {
+  require("dotenv").config({ path: ".env.production" });
+} else if (process.env.NODE_ENV === "local") {
+  require("dotenv").config({ path: ".env.local" });
+} else {
+  // Fallback for development
+  require("dotenv").config({ path: ".env.local" });
+}
 const express = require("express");
 const cors = require("cors");
 const sqlite3 = require("sqlite3").verbose();
@@ -12,7 +20,7 @@ const PORT = process.env.PORT || 5001;
 
 // Set default NODE_ENV if not provided
 if (!process.env.NODE_ENV) {
-  process.env.NODE_ENV = "development";
+  process.env.NODE_ENV = "local";
 }
 
 // Google Calendar API configuration
