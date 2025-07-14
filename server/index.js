@@ -388,6 +388,45 @@ app.get("/api/prep", (req, res) => {
   res.json(prepInstructions);
 });
 
+// Export meals to text file format
+app.get("/api/export-meals", (req, res) => {
+  // Skip authentication check for this endpoint
+  db.all("SELECT * FROM meals ORDER BY title", [], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+
+    const mealsText = rows
+      .map((row) => {
+        const meal = {
+          title: row.title,
+          ingredients: JSON.parse(row.ingredients),
+          hasVeggieSide: Boolean(row.hasVeggieSide),
+        };
+
+        // Format as text file
+        const ingredientsText = meal.ingredients
+          .map((ingredient) => {
+            if (ingredient.quantity) {
+              return `${ingredient.quantity} ${ingredient.name}`;
+            }
+            return ingredient.name;
+          })
+          .join("\n");
+
+        return `${meal.title}\n${ingredientsText}`;
+      })
+      .join("\n\n");
+
+    // Set proper headers for text file download
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=meals.txt");
+    res.setHeader("Cache-Control", "no-cache");
+    res.send(mealsText);
+  });
+});
+
 // Google Calendar API route
 app.post("/api/calendar", async (req, res) => {
   try {
