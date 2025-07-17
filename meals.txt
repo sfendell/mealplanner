@@ -11,6 +11,12 @@ black pepper
 olive oil
 salt
 
+blackened chicken
+2 chicken breast
+4 potato
+1 zucchini
+blackening seasoning
+
 chicken stir fry
 1 can of water chestnuts
 1 carrots
@@ -25,6 +31,16 @@ sesame oil
 soy sauce
 vegetable oil
 
+fajitas
+1 avocado
+1 bell pepper
+2 chicken breast
+2 lime
+1 onion
+1 pack of tortillas
+hot sauce
+sour cream
+
 greek salad
 1 can of chickpeas
 1 cucumber
@@ -36,6 +52,40 @@ lemon juice
 olive oil
 oregano
 salt
+
+hainan chicken
+2 broccolini
+5 chicken thigh
+1 cucumber
+2 ginger root
+2 green onion
+black soy sauce
+chili crisp
+garlic
+jasmine rice
+salt
+sesame oil
+
+orechiette
+1 box of orechiette
+1 package of kale
+1 lemon
+1 log of goat cheese
+1 can of chickpeas
+sundried tomato
+red pepper flakes
+salt
+
+pesto fish
+1 half a package of basil
+4 whitefish fillet
+walnuts
+garlic
+olive oil
+salt
+2 head of broccoli
+3 large potatoes
+sundried tomatoes
 
 red pasta
 1 box of long pasta
@@ -51,17 +101,20 @@ olive oil
 oregano
 salt
 
-tuscan pesto chicken
-1 box of short pasta
-2 chicken breast
-1 pack of spinach
-garlic
-olive oil
-red pepper flakes
+roast dinner
+4 chicken thigh
+2 head of broccoli
+4 potato
+
+shrimp and grits
+1 box of corn meal
+1 package of shrimp
+1 bell pepper
+1 onion
+2 green onion
 salt
-sundried tomatoes
-walnuts
-zucchini
+cajun seasoning
+peas
 
 sushi bake
 1 cucumber
@@ -78,40 +131,6 @@ sesame oil
 soy sauce
 sriracha
 
-fajitas
-1 avocado
-1 bell pepper
-2 chicken breast
-2 lime
-1 onion
-1 pack of tortillas
-hot sauce
-sour cream
-
-blackened chicken
-2 chicken breast
-4 potato
-1 zucchini
-blackening seasoning
-
-roast dinner
-4 chicken thigh
-2 head of broccoli
-4 potato
-
-hainan chicken
-2 broccolini
-5 chicken thigh
-1 cucumber
-2 ginger root
-2 green onion
-black soy sauce
-chili crisp
-garlic
-jasmine rice
-salt
-sesame oil
-
 tomato spinach curry
 1 can of chickpeas
 1 package of spinach
@@ -123,22 +142,14 @@ basmati rice
 salt
 pepper
 
-shrimp and grits
-1 box of corn meal
-1 package of shrimp
-1 bell pepper
-1 onion
-2 green onion
-salt
-cajun seasoning
-peas
-
-orechiette
-1 box of orechiette
-1 package of kale
-1 lemon
-1 log of goat cheese
-1 can of chickpeas
-sundried tomato
+tuscan pesto chicken
+1 box of short pasta
+2 chicken breast
+1 pack of spinach
+garlic
+olive oil
 red pepper flakes
 salt
+sundried tomatoes
+walnuts
+zucchini

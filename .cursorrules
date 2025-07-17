@@ -1,0 +1,21 @@
+# Cursor Rules for MealPrep Project
+
+## File Watchers
+When meals.txt is saved, automatically alphabetize it:
+
+```bash
+# Run alphabetization script when meals.txt is saved
+if [[ $1" == "meals.txt" ]]; then
+    echo🔄Auto-alphabetizing meals.txt..."
+    python3 alphabetize_meals.py
+    if  $? -eq0 then
+        echo✅Meals alphabetized successfully! else
+        echo "❌ Failed to alphabetize meals"
+    fi
+fi
+```
+
+## Project Guidelines
+- Always alphabetize meals.txt after editing
+- Keep ingredients organized (quantified first, then unquantified)
+- Maintain proper spacing between meals 
