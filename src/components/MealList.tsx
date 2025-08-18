@@ -1,10 +1,22 @@
 import React, { useState } from "react";
 import { toTitleCase } from "../utils/format";
 
+type Ingredient = {
+  quantity: string;
+  name: string;
+};
+
+type Meal = {
+  id: string;
+  title: string;
+  ingredients: Ingredient[];
+  hasVeggieSide: boolean;
+};
+
 function MealList({ mealsMap, onMealDeleted }) {
-  const [editingMeal, setEditingMeal] = useState(null);
+  const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [editIngredients, setEditIngredients] = useState([]);
+  const [editIngredients, setEditIngredients] = useState<Ingredient[]>([]);
   const [editHasVeggieSide, setEditHasVeggieSide] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const handleDelete = async (mealId) => {

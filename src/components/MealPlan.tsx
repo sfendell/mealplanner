@@ -3,6 +3,20 @@ import PrepCalendar from "./PrepCalendar";
 import { toTitleCase } from "../utils/format";
 import { DAY_NAMES, DAY_LABELS } from "../constants";
 
+type Day = {
+  key: string;
+  label: string;
+  date: Date;
+};
+
+type ShoppingList = {
+  [key: string]: {
+    ingredient: string;
+    quantity: number | null;
+    isBoolean: boolean;
+  };
+};
+
 function MealPlan({ mealsMap }) {
   const [planType, setPlanType] = useState("weeknights"); // weeknights, fullweek, custom
   const [customStartDay, setCustomStartDay] = useState("monday");
@@ -67,11 +81,7 @@ function MealPlan({ mealsMap }) {
     const dayKeys = Object.keys(DAY_NAMES);
     const dayLabels = Object.values(DAY_LABELS);
 
-    let days = [];
-
-    // Always use the current start/end day values
-    const startDayIndex = dayKeys.indexOf(customStartDay);
-    const endDayIndex = dayKeys.indexOf(customEndDay);
+    let days: Day[] = [];
 
     let currentDate = new Date(tomorrow);
     let daysAdded = 0;
@@ -81,23 +91,23 @@ function MealPlan({ mealsMap }) {
       const dayIndex = currentDate.getDay();
       const dayKey = dayKeys[dayIndex];
       const dayLabel = dayLabels[dayIndex];
+      let tempDate = new Date(currentDate);
 
       if (dayKey === customStartDay) {
         // Start collecting days from the start day
-        let tempDays = [];
-        let tempDate = new Date(currentDate);
+        let tempDays: Day[] = [];
 
         // If end day is blank, only plan for one day
         if (!customEndDay || customEndDay === "") {
-          tempDays.push({
-            key: dayKey,
-            label: dayLabel,
-            date: new Date(tempDate),
-          });
-          days = tempDays;
-          break;
+          days = [
+            {
+              key: dayKey,
+              label: dayLabel,
+              date: new Date(tempDate),
+            },
+          ];
         }
-
+      } else {
         // If start and end day are the same, do 8 days instead of 1
         const daysToCollect = customStartDay === customEndDay ? 8 : 7;
 
@@ -112,23 +122,8 @@ function MealPlan({ mealsMap }) {
             date: new Date(tempDate),
           });
 
-          // If start and end are different, stop when we reach the end day
-          if (customStartDay !== customEndDay && tempDayKey === customEndDay) {
-            days = tempDays;
-            break;
-          }
-
           tempDate.setDate(tempDate.getDate() + 1);
         }
-
-        // If we collected all days (either 8 for same day or reached end day), set the days
-        if (
-          tempDays.length === daysToCollect ||
-          (customStartDay !== customEndDay && tempDays.length > 0)
-        ) {
-          days = tempDays;
-        }
-        break;
       }
 
       currentDate.setDate(currentDate.getDate() + 1);
@@ -148,7 +143,7 @@ function MealPlan({ mealsMap }) {
   };
 
   const generateShoppingList = () => {
-    const shoppingList = {};
+    const shoppingList: ShoppingList = {};
     let veggieCount = 0;
 
     Object.values(weeklyPlan).forEach((mealId) => {
@@ -158,12 +153,12 @@ function MealPlan({ mealsMap }) {
         meal.ingredients.forEach((ingredient) => {
           const ingredientName = ingredient.name;
           const key = ingredientName.toLowerCase();
-          if (shoppingList[key]) {
-            // If ingredient has a quantity, add it
-            if (ingredient.quantity) {
-              shoppingList[key].quantity += parseInt(ingredient.quantity);
-            }
-            // If no quantity, it's a boolean item - no need to increment
+          if (
+            shoppingList[key] &&
+            ingredient.quantity &&
+            shoppingList[key].quantity
+          ) {
+            shoppingList[key].quantity += parseInt(ingredient.quantity);
           } else {
             shoppingList[key] = {
               ingredient: ingredientName,
@@ -230,30 +225,30 @@ function MealPlan({ mealsMap }) {
   // Send calendar invites via Google Calendar API
   async function handleSendInvites() {
     // Create a map of all planned days to their actual displayed dates
-    const plannedDays = [];
-    days.forEach((day) => {
+    const plannedDays = days.map((day) => {
+      const plannedDay = { date: day.date };
       const mealId = weeklyPlan[day.key];
       if (mealId) {
         if (mealId === "eatout") {
-          plannedDays.push({
+          return {
             title: "Eat Out",
-            date: day.date,
             description: "Eating out tonight",
-          });
+            ...plannedDay,
+          };
         } else if (mealId === "leftovers") {
-          plannedDays.push({
+          return {
             title: "Leftovers",
-            date: day.date,
             description: "Having leftovers tonight",
-          });
+            ...plannedDay,
+          };
         } else {
           const meal = mealsMap.get(mealId);
           if (meal) {
-            plannedDays.push({
+            return {
               title: toTitleCase(meal.title),
-              date: day.date,
               description: `Meal prep for ${toTitleCase(meal.title)}`,
-            });
+              ...plannedDay,
+            };
           }
         }
       }
@@ -340,21 +335,6 @@ function MealPlan({ mealsMap }) {
   return (
     <div>
       <h2>Weekly Meal Plan</h2>
-
-      <div className="meal-plan-input">
-        <label htmlFor="planType">Meal Planning Type:</label>
-        <select
-          id="planType"
-          value={planType}
-          onChange={(e) => setPlanType(e.target.value)}
-          className="form-control"
-          style={{ marginLeft: "10px" }}
-        >
-          <option value="weeknights">Weeknight Meal Planning</option>
-          <option value="fullweek">All Week Meal Planning</option>
-          <option value="custom">Custom Start/Stop Days</option>
-        </select>
-      </div>
 
       <div
         className="custom-days-input"
