@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "server/index.ts",
+      "src": "server/index.js",
       "use": "@vercel/node"
     },
     {
@@ -26,10 +26,5 @@
       "src": "/(.*)",
       "dest": "/dist/$1"
     }
-  ],
-  "functions": {
-    "server/index.ts": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }

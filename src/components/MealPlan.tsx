@@ -82,7 +82,6 @@ function MealPlan({ mealsMap }) {
     const dayLabels = Object.values(DAY_LABELS);
 
     let days: Day[] = [];
-
     let currentDate = new Date(tomorrow);
     let daysAdded = 0;
     const maxDays = 14; // Prevent infinite loops
@@ -91,14 +90,13 @@ function MealPlan({ mealsMap }) {
       const dayIndex = currentDate.getDay();
       const dayKey = dayKeys[dayIndex];
       const dayLabel = dayLabels[dayIndex];
-      let tempDate = new Date(currentDate);
 
       if (dayKey === customStartDay) {
         // Start collecting days from the start day
-        let tempDays: Day[] = [];
+        let tempDate = new Date(currentDate);
 
-        // If end day is blank, only plan for one day
         if (!customEndDay || customEndDay === "") {
+          // Single day plan
           days = [
             {
               key: dayKey,
@@ -106,23 +104,39 @@ function MealPlan({ mealsMap }) {
               date: new Date(tempDate),
             },
           ];
-        }
-      } else {
-        // If start and end day are the same, do 8 days instead of 1
-        const daysToCollect = customStartDay === customEndDay ? 8 : 7;
+          break;
+        } else {
+          // Multi-day plan - collect days until we reach the end day
+          let tempDays: Day[] = [];
+          let tempDaysAdded = 0;
 
-        for (let i = 0; i < daysToCollect; i++) {
-          const tempDayIndex = tempDate.getDay();
-          const tempDayKey = dayKeys[tempDayIndex];
-          const tempDayLabel = dayLabels[tempDayIndex];
+          while (tempDaysAdded < 7) {
+            // Max 7 days to prevent infinite loop
+            const tempDayIndex = tempDate.getDay();
+            const tempDayKey = dayKeys[tempDayIndex];
+            const tempDayLabel = dayLabels[tempDayIndex];
 
-          tempDays.push({
-            key: tempDayKey,
-            label: tempDayLabel,
-            date: new Date(tempDate),
-          });
+            tempDays.push({
+              key: tempDayKey,
+              label: tempDayLabel,
+              date: new Date(tempDate),
+            });
 
-          tempDate.setDate(tempDate.getDate() + 1);
+            // Check if we've reached the end day
+            if (tempDayKey === customEndDay) {
+              days = tempDays;
+              break;
+            }
+
+            tempDate.setDate(tempDate.getDate() + 1);
+            tempDaysAdded++;
+          }
+
+          // If we didn't find the end day, just use the days we collected
+          if (days.length === 0) {
+            days = tempDays;
+          }
+          break;
         }
       }
 
