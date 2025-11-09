@@ -1,18 +1,39 @@
+import dotenv from "dotenv";
+import express, { Request, Response } from "express";
+import cors from "cors";
+import sqlite3 from "sqlite3";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
 // Load environment variables based on NODE_ENV
 if (process.env.NODE_ENV === "production") {
-  require("dotenv").config({ path: ".env.production" });
+  dotenv.config({ path: ".env.production" });
 } else if (process.env.NODE_ENV === "local") {
-  require("dotenv").config({ path: ".env.local" });
+  dotenv.config({ path: ".env.local" });
 } else {
   // Fallback for development
-  require("dotenv").config({ path: ".env.local" });
+  dotenv.config({ path: ".env.local" });
 }
 
-const express = require("express");
-const cors = require("cors");
-const sqlite3 = require("sqlite3").verbose();
-const path = require("path");
-const fs = require("fs");
+const __dirname = process.cwd();
+
+interface PrepInstructions {
+  [key: string]: string;
+}
+
+interface Ingredient {
+  quantity: string | null;
+  name: string;
+}
+
+interface Meal {
+  id: string;
+  title: string;
+  ingredients: Ingredient[];
+  hasVeggieSide: boolean;
+}
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -37,9 +58,9 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
-let prepInstructions = {};
+let prepInstructions: PrepInstructions = {};
 
-function loadPrepInstructions() {
+function loadPrepInstructions(): void {
   try {
     const prepFilePath = path.join(__dirname, "../prep.txt");
     if (!fs.existsSync(prepFilePath)) {
@@ -48,9 +69,9 @@ function loadPrepInstructions() {
     }
 
     const content = fs.readFileSync(prepFilePath, "utf8");
-    const lines = content.split("\n").filter((line) => line.trim());
+    const lines = content.split("\n").filter((line: string) => line.trim());
 
-    lines.forEach((line) => {
+    lines.forEach((line: string) => {
       // Skip comment lines
       if (line.trim().startsWith("#")) return;
 
@@ -63,12 +84,14 @@ function loadPrepInstructions() {
     console.log(
       `Loaded ${Object.keys(prepInstructions).length} prep instructions`
     );
-  } catch (error) {
-    console.error("Error loading prep instructions:", error.message);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error loading prep instructions:", error.message);
+    }
   }
 }
 
-function parseIngredientLine(line) {
+function parseIngredientLine(line: string): Ingredient {
   const trimmedLine = line.trim().toLowerCase();
 
   // Check if line starts with a number (quantity)
@@ -169,8 +192,10 @@ function parseMealsFile() {
         }
       });
     });
-  } catch (error) {
-    console.error("Error parsing meals file:", error.message);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error parsing meals file:", error.message);
+    }
   }
 }
 
@@ -214,23 +239,27 @@ function initDatabase() {
 }
 
 // Routes
-app.get("/api/meals", (req, res) => {
-  db.all("SELECT * FROM meals ORDER BY title", [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+app.get("/api/meals", (req: Request, res: Response) => {
+  db.all(
+    "SELECT * FROM meals ORDER BY title",
+    [],
+    (err: Error | null, rows: any[]) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      const meals = rows.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        ingredients: JSON.parse(row.ingredients),
+        hasVeggieSide: Boolean(row.hasVeggieSide),
+        created_at: row.created_at,
+      }));
+
+      res.json(meals);
     }
-
-    const meals = rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      ingredients: JSON.parse(row.ingredients),
-      hasVeggieSide: Boolean(row.hasVeggieSide),
-      created_at: row.created_at,
-    }));
-
-    res.json(meals);
-  });
+  );
 });
 
 app.post("/api/meals", (req, res) => {

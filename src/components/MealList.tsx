@@ -24,6 +24,7 @@ function MealList({ mealsMap, onMealDeleted }) {
       return;
     }
 
+    
     try {
       const response = await fetch(`/api/meals/${mealId}`, {
         method: "DELETE",
