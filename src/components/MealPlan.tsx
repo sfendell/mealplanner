@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import PrepCalendar from "./PrepCalendar";
 import { toTitleCase } from "../utils/format";
 import { DAY_NAMES, DAY_LABELS } from "../constants";
+import { prepInstructions } from "../data/prep";
+import type { Meal } from "../types";
 
 type Day = {
   key: string;
@@ -17,12 +19,11 @@ type ShoppingList = {
   };
 };
 
-function MealPlan({ mealsMap }) {
-  const [planType, setPlanType] = useState("weeknights"); // weeknights, fullweek, custom
+function MealPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
+  const [planType, setPlanType] = useState("weeknights");
   const [customStartDay, setCustomStartDay] = useState("monday");
   const [customEndDay, setCustomEndDay] = useState("friday");
 
-  // Initialize start/end days based on plan type
   useEffect(() => {
     if (planType === "weeknights") {
       setCustomStartDay("monday");
@@ -32,46 +33,22 @@ function MealPlan({ mealsMap }) {
       setCustomEndDay("saturday");
     }
   }, [planType]);
+
   const [weeklyPlan, setWeeklyPlan] = useState({
-    monday: null,
-    tuesday: null,
-    wednesday: null,
-    thursday: null,
-    friday: null,
-    saturday: null,
-    sunday: null,
+    monday: null as string | null,
+    tuesday: null as string | null,
+    wednesday: null as string | null,
+    thursday: null as string | null,
+    friday: null as string | null,
+    saturday: null as string | null,
+    sunday: null as string | null,
   });
-  const [prepInstructions, setPrepInstructions] = useState({});
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [emails, setEmails] = useState([
     "sfendell91@gmail.com",
     "suresh.soumya105@gmail.com",
   ]);
   const [emailInput, setEmailInput] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/prep")
-      .then((res) => res.json())
-      .then((data) => setPrepInstructions(data))
-      .catch((err) => console.error("Error fetching prep instructions:", err));
-  }, []);
-
-  // Check authentication status
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      try {
-        const response = await fetch("/auth/status");
-        const data = await response.json();
-        setIsAuthenticated(data.authenticated);
-      } catch (error) {
-        console.error("Error checking auth status:", error);
-        setIsAuthenticated(false);
-      }
-    };
-
-    checkAuthStatus();
-  }, []);
 
   const getDaysForPlanType = () => {
     const today = new Date();
@@ -84,7 +61,7 @@ function MealPlan({ mealsMap }) {
     let days: Day[] = [];
     let currentDate = new Date(tomorrow);
     let daysAdded = 0;
-    const maxDays = 14; // Prevent infinite loops
+    const maxDays = 14;
 
     while (daysAdded < maxDays) {
       const dayIndex = currentDate.getDay();
@@ -92,11 +69,9 @@ function MealPlan({ mealsMap }) {
       const dayLabel = dayLabels[dayIndex];
 
       if (dayKey === customStartDay) {
-        // Start collecting days from the start day
         let tempDate = new Date(currentDate);
 
         if (!customEndDay || customEndDay === "") {
-          // Single day plan
           days = [
             {
               key: dayKey,
@@ -106,12 +81,10 @@ function MealPlan({ mealsMap }) {
           ];
           break;
         } else {
-          // Multi-day plan - collect days until we reach the end day
           let tempDays: Day[] = [];
           let tempDaysAdded = 0;
 
           while (tempDaysAdded < 7) {
-            // Max 7 days to prevent infinite loop
             const tempDayIndex = tempDate.getDay();
             const tempDayKey = dayKeys[tempDayIndex];
             const tempDayLabel = dayLabels[tempDayIndex];
@@ -122,7 +95,6 @@ function MealPlan({ mealsMap }) {
               date: new Date(tempDate),
             });
 
-            // Check if we've reached the end day
             if (tempDayKey === customEndDay) {
               days = tempDays;
               break;
@@ -132,7 +104,6 @@ function MealPlan({ mealsMap }) {
             tempDaysAdded++;
           }
 
-          // If we didn't find the end day, just use the days we collected
           if (days.length === 0) {
             days = tempDays;
           }
@@ -149,7 +120,7 @@ function MealPlan({ mealsMap }) {
 
   const days = getDaysForPlanType();
 
-  const handleMealSelect = (day, mealId) => {
+  const handleMealSelect = (day: string, mealId: string) => {
     setWeeklyPlan((prev) => ({
       ...prev,
       [day]: mealId === "" ? null : mealId,
@@ -179,7 +150,7 @@ function MealPlan({ mealsMap }) {
               quantity: ingredient.quantity
                 ? parseInt(ingredient.quantity)
                 : null,
-              isBoolean: !ingredient.quantity, // Mark as boolean if no quantity
+              isBoolean: !ingredient.quantity,
             };
           }
         });
@@ -194,10 +165,8 @@ function MealPlan({ mealsMap }) {
 
   const { shoppingList, veggieCount } = generateShoppingList();
   const shoppingItems = Object.values(shoppingList).sort((a, b) => {
-    // Sort boolean items (isBoolean: true) to the end
     if (a.isBoolean && !b.isBoolean) return 1;
     if (!a.isBoolean && b.isBoolean) return -1;
-    // If both are the same type, sort alphabetically
     return a.ingredient.localeCompare(b.ingredient);
   });
   const meals = Array.from(mealsMap.values()).sort((a, b) =>
@@ -208,120 +177,88 @@ function MealPlan({ mealsMap }) {
     return (
       <div className="empty-state">
         <h3>No meals available</h3>
-        <p>Add some meals first to create a weekly plan!</p>
+        <p>Add meals to meals.txt and redeploy.</p>
       </div>
     );
   }
 
-  // Helper to generate .ics content for a meal event
-  function generateICS(mealTitle, date, emails) {
-    // Format date to YYYYMMDDTHHMMSSZ (UTC)
-    const pad = (n) => n.toString().padStart(2, "0");
+  function generateICS(mealTitle: string, date: Date, inviteEmails: string[]) {
+    const pad = (n: number) => n.toString().padStart(2, "0");
     const start = new Date(date);
-    start.setHours(18, 0, 0, 0); // 6pm local
+    start.setHours(18, 0, 0, 0);
     const end = new Date(start);
-    end.setHours(19, 0, 0, 0); // 1 hour later
-    const formatICSDate = (d) =>
+    end.setHours(19, 0, 0, 0);
+    const formatICSDate = (d: Date) =>
       `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(
         d.getUTCDate()
       )}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
     const dtStart = formatICSDate(start);
     const dtEnd = formatICSDate(end);
     const uid = `${mealTitle.replace(/\s+/g, "-")}-${dtStart}@mealprep`;
-    const attendees = emails
+    const attendees = inviteEmails
       .map((email) => `ATTENDEE;CN=${email};RSVP=TRUE:mailto:${email}`)
-      .join("\n");
-    return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//MealPrep//EN\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${dtStart}\nDTSTART:${dtStart}\nDTEND:${dtEnd}\nSUMMARY:${toTitleCase(
-      mealTitle
-    )}\n${attendees}\nEND:VEVENT\nEND:VCALENDAR`;
+      .join("\r\n");
+    return [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//MealPrep//EN",
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTAMP:${dtStart}`,
+      `DTSTART:${dtStart}`,
+      `DTEND:${dtEnd}`,
+      `SUMMARY:${toTitleCase(mealTitle)}`,
+      attendees,
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ]
+      .filter(Boolean)
+      .join("\r\n");
   }
 
-  // Send calendar invites via Google Calendar API
-  async function handleSendInvites() {
-    // Create a map of all planned days to their actual displayed dates
-    const plannedDays = days.map((day) => {
-      const plannedDay = { date: day.date };
-      const mealId = weeklyPlan[day.key];
-      if (mealId) {
+  function handleDownloadInvites() {
+    const events = days
+      .map((day) => {
+        const mealId = weeklyPlan[day.key as keyof typeof weeklyPlan];
+        if (!mealId) return null;
+
         if (mealId === "eatout") {
-          return {
-            title: "Eat Out",
-            description: "Eating out tonight",
-            ...plannedDay,
-          };
-        } else if (mealId === "leftovers") {
-          return {
-            title: "Leftovers",
-            description: "Having leftovers tonight",
-            ...plannedDay,
-          };
-        } else {
-          const meal = mealsMap.get(mealId);
-          if (meal) {
-            return {
-              title: toTitleCase(meal.title),
-              description: `Meal prep for ${toTitleCase(meal.title)}`,
-              ...plannedDay,
-            };
-          }
+          return { title: "Eat Out", date: day.date };
         }
-      }
-    });
+        if (mealId === "leftovers") {
+          return { title: "Leftovers", date: day.date };
+        }
 
-    // Get user's timezone
-    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const meal = mealsMap.get(mealId);
+        if (!meal) return null;
+        return { title: toTitleCase(meal.title), date: day.date };
+      })
+      .filter(Boolean) as { title: string; date: Date }[];
 
-    // Prepare events for Google Calendar API using the actual displayed dates
-    const events = plannedDays.map((plannedDay) => ({
-      title: plannedDay.title,
-      date: plannedDay.date.toISOString(),
-      attendees: emails,
-      description: plannedDay.description,
-      timezone: userTimezone,
-    }));
-
-    try {
-      const response = await fetch("/api/calendar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          events,
-          shoppingList,
-          veggieCount,
-          planType,
-          startDay: customStartDay,
-          endDay: customEndDay,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        alert(
-          `Success! ${result.message}\n\nEvents created:\n${result.events
-            .map(
-              (event) =>
-                `• ${event.title} - ${new Date(
-                  event.date
-                ).toLocaleDateString()}`
-            )
-            .join("\n")}`
-        );
-      } else {
-        alert(`Error creating calendar events: ${result.error}`);
-      }
-    } catch (error) {
-      console.error("Error sending invites:", error);
-      alert("Failed to send calendar invites. Please try again.");
+    if (events.length === 0) {
+      alert("Select at least one meal before downloading calendar invites.");
+      return;
     }
+
+    events.forEach((event, index) => {
+      const ics = generateICS(event.title, event.date, emails);
+      const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `mealprep-${index + 1}-${event.title
+        .toLowerCase()
+        .replace(/\s+/g, "-")}.ics`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
 
     setShowInviteModal(false);
   }
 
-  // Add email to the list
-  function handleAddEmail(e) {
+  function handleAddEmail(e: React.FormEvent) {
     e.preventDefault();
     const val = emailInput.trim();
     if (val && !emails.includes(val)) {
@@ -330,20 +267,8 @@ function MealPlan({ mealsMap }) {
     }
   }
 
-  // Remove email from the list
-  function handleRemoveEmail(email) {
+  function handleRemoveEmail(email: string) {
     setEmails(emails.filter((e) => e !== email));
-  }
-
-  // Handle calendar invite button click
-  function handleCalendarInviteClick() {
-    if (!isAuthenticated) {
-      // Redirect to auth page if not authenticated
-      window.location.href = "/auth";
-    } else {
-      // Show modal if authenticated
-      setShowInviteModal(true);
-    }
   }
 
   return (
@@ -370,7 +295,6 @@ function MealPlan({ mealsMap }) {
           value={customStartDay}
           onChange={(e) => {
             setCustomStartDay(e.target.value);
-            // Switch to custom if user changes from preset values
             if (
               (planType === "weeknights" && e.target.value !== "monday") ||
               (planType === "fullweek" && e.target.value !== "sunday")
@@ -396,7 +320,6 @@ function MealPlan({ mealsMap }) {
           value={customEndDay}
           onChange={(e) => {
             setCustomEndDay(e.target.value);
-            // Switch to custom if user changes from preset values
             if (
               (planType === "weeknights" && e.target.value !== "friday") ||
               (planType === "fullweek" && e.target.value !== "saturday")
@@ -433,7 +356,7 @@ function MealPlan({ mealsMap }) {
             )}
             <select
               className="form-control compact"
-              value={weeklyPlan[key] || ""}
+              value={weeklyPlan[key as keyof typeof weeklyPlan] || ""}
               onChange={(e) => handleMealSelect(key, e.target.value)}
             >
               <option value="">Select</option>
@@ -495,19 +418,16 @@ function MealPlan({ mealsMap }) {
         />
       )}
 
-      {/* Calendar Invite Button and Modal */}
       <div style={{ marginTop: 32, textAlign: "center" }}>
         <button
           className="btn btn-primary"
-          onClick={handleCalendarInviteClick}
+          onClick={() => setShowInviteModal(true)}
           style={{ fontSize: "1.1rem", padding: "12px 32px" }}
         >
-          {isAuthenticated
-            ? "Send Calendar Invites"
-            : "Sign in to Send Calendar Invites"}
+          Download Calendar Invites
         </button>
         <p style={{ marginTop: 8, fontSize: "0.8rem", color: "#666" }}>
-          Send calendar invites for meal prep events with shopping list included
+          Download .ics files for meal events (attendees optional)
         </p>
       </div>
       {showInviteModal && (
@@ -535,10 +455,9 @@ function MealPlan({ mealsMap }) {
               position: "relative",
             }}
           >
-            <h3 style={{ marginBottom: 16 }}>Send Calendar Invites</h3>
+            <h3 style={{ marginBottom: 16 }}>Download Calendar Invites</h3>
             <p style={{ marginBottom: 16, fontSize: "0.9rem", color: "#666" }}>
-              Add email addresses below to send calendar invites with shopping
-              list
+              Optional: add emails to include as attendees in the .ics files
             </p>
             <form onSubmit={handleAddEmail} style={{ marginBottom: 16 }}>
               <input
@@ -565,22 +484,20 @@ function MealPlan({ mealsMap }) {
                   }}
                 >
                   {email}
-                  {emails.length > 1 && (
-                    <button
-                      onClick={() => handleRemoveEmail(email)}
-                      style={{
-                        marginLeft: 8,
-                        background: "none",
-                        border: "none",
-                        color: "#dc3545",
-                        cursor: "pointer",
-                        fontWeight: "bold",
-                      }}
-                      title="Remove"
-                    >
-                      ×
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleRemoveEmail(email)}
+                    style={{
+                      marginLeft: 8,
+                      background: "none",
+                      border: "none",
+                      color: "#dc3545",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                    title="Remove"
+                  >
+                    ×
+                  </button>
                 </span>
               ))}
             </div>
@@ -599,10 +516,9 @@ function MealPlan({ mealsMap }) {
               </button>
               <button
                 className="btn btn-primary"
-                onClick={handleSendInvites}
-                disabled={emails.length === 0}
+                onClick={handleDownloadInvites}
               >
-                Send Calendar Invites
+                Download .ics Files
               </button>
             </div>
           </div>

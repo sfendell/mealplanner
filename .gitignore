@@ -1,7 +1,9 @@
 dist/
-google-credentials.json
 .vite/
 node_modules/
 .env.local
 .env.production
 .vercel
+google-credentials.json
+meals.db
+*.db
