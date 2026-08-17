@@ -5,3 +5,18 @@ export const SHEET_EDIT_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID
 
 export const MEALS_TAB = "Meals";
 export const PREP_TAB = "Prep";
+
+/**
+ * OAuth 2.0 Web Client ID from Google Cloud Console.
+ * Override with VITE_GOOGLE_CLIENT_ID in a .env file if preferred.
+ *
+ * Authorized JavaScript origins should include:
+ * - http://localhost:5173
+ * - https://sfendell.github.io
+ */
+export const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  "";
+
+export const GOOGLE_CALENDAR_SCOPE =
+  "https://www.googleapis.com/auth/calendar.events";

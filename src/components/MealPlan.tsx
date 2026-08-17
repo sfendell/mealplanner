@@ -2,6 +2,12 @@ import React, { useState, useEffect } from "react";
 import PrepCalendar from "./PrepCalendar";
 import { toTitleCase } from "../utils/format";
 import { DAY_NAMES, DAY_LABELS } from "../constants";
+import {
+  ensureGoogleCalendarAccess,
+  getStoredAccessToken,
+  isGoogleAuthConfigured,
+} from "../lib/googleAuth";
+import { createMealPrepCalendarEvents } from "../lib/googleCalendar";
 import type { Meal } from "../types";
 
 type Day = {
@@ -54,6 +60,10 @@ function MealPlan({
     "suresh.soumya105@gmail.com",
   ]);
   const [emailInput, setEmailInput] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => Boolean(getStoredAccessToken())
+  );
+  const [sending, setSending] = useState(false);
 
   const getDaysForPlanType = () => {
     const today = new Date();
@@ -187,80 +197,98 @@ function MealPlan({
     );
   }
 
-  function generateICS(mealTitle: string, date: Date, inviteEmails: string[]) {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    const start = new Date(date);
-    start.setHours(18, 0, 0, 0);
-    const end = new Date(start);
-    end.setHours(19, 0, 0, 0);
-    const formatICSDate = (d: Date) =>
-      `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(
-        d.getUTCDate()
-      )}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
-    const dtStart = formatICSDate(start);
-    const dtEnd = formatICSDate(end);
-    const uid = `${mealTitle.replace(/\s+/g, "-")}-${dtStart}@mealprep`;
-    const attendees = inviteEmails
-      .map((email) => `ATTENDEE;CN=${email};RSVP=TRUE:mailto:${email}`)
-      .join("\r\n");
-    return [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//MealPrep//EN",
-      "BEGIN:VEVENT",
-      `UID:${uid}`,
-      `DTSTAMP:${dtStart}`,
-      `DTSTART:${dtStart}`,
-      `DTEND:${dtEnd}`,
-      `SUMMARY:${toTitleCase(mealTitle)}`,
-      attendees,
-      "END:VEVENT",
-      "END:VCALENDAR",
-    ]
-      .filter(Boolean)
-      .join("\r\n");
-  }
-
-  function handleDownloadInvites() {
-    const events = days
+  function generatePlannedEvents() {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return days
       .map((day) => {
         const mealId = weeklyPlan[day.key as keyof typeof weeklyPlan];
         if (!mealId) return null;
 
         if (mealId === "eatout") {
-          return { title: "Eat Out", date: day.date };
+          return {
+            title: "Eat Out",
+            description: "Eating out tonight",
+            date: day.date,
+            attendees: emails,
+            timezone,
+          };
         }
         if (mealId === "leftovers") {
-          return { title: "Leftovers", date: day.date };
+          return {
+            title: "Leftovers",
+            description: "Having leftovers tonight",
+            date: day.date,
+            attendees: emails,
+            timezone,
+          };
         }
 
         const meal = mealsMap.get(mealId);
         if (!meal) return null;
-        return { title: toTitleCase(meal.title), date: day.date };
+        return {
+          title: toTitleCase(meal.title),
+          description: `Meal prep for ${toTitleCase(meal.title)}`,
+          date: day.date,
+          attendees: emails,
+          timezone,
+        };
       })
-      .filter(Boolean) as { title: string; date: Date }[];
+      .filter(Boolean) as Array<{
+      title: string;
+      description: string;
+      date: Date;
+      attendees: string[];
+      timezone: string;
+    }>;
+  }
 
+  async function handleSendInvites() {
+    const events = generatePlannedEvents();
     if (events.length === 0) {
-      alert("Select at least one meal before downloading calendar invites.");
+      alert("Select at least one meal before sending calendar invites.");
+      return;
+    }
+    if (emails.length === 0) {
+      alert("Add at least one attendee email.");
       return;
     }
 
-    events.forEach((event, index) => {
-      const ics = generateICS(event.title, event.date, emails);
-      const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `mealprep-${index + 1}-${event.title
-        .toLowerCase()
-        .replace(/\s+/g, "-")}.ics`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    });
+    setSending(true);
+    try {
+      const accessToken = await ensureGoogleCalendarAccess();
+      setIsAuthenticated(true);
+      const created = await createMealPrepCalendarEvents({
+        accessToken,
+        events,
+        shoppingList,
+        veggieCount,
+        planType,
+        startDay: customStartDay,
+        endDay: customEndDay,
+      });
 
-    setShowInviteModal(false);
+      alert(
+        `Success! Created ${created.length} calendar event(s) and sent invites.\n\n${created
+          .map(
+            (event) =>
+              `• ${event.title}${
+                event.date ? ` - ${new Date(event.date).toLocaleDateString()}` : ""
+              }`
+          )
+          .join("\n")}`
+      );
+      setShowInviteModal(false);
+    } catch (error) {
+      console.error("Error sending invites:", error);
+      setIsAuthenticated(Boolean(getStoredAccessToken()));
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to send calendar invites. Please try again."
+      );
+    } finally {
+      setSending(false);
+    }
   }
 
   function handleAddEmail(e: React.FormEvent) {
@@ -274,6 +302,30 @@ function MealPlan({
 
   function handleRemoveEmail(email: string) {
     setEmails(emails.filter((e) => e !== email));
+  }
+
+  async function handleCalendarInviteClick() {
+    if (!isGoogleAuthConfigured()) {
+      alert(
+        "Google Calendar is not configured yet. Add a Web OAuth Client ID as VITE_GOOGLE_CLIENT_ID (or in src/config.ts), with authorized origins http://localhost:5173 and https://sfendell.github.io."
+      );
+      return;
+    }
+
+    try {
+      if (!getStoredAccessToken()) {
+        await ensureGoogleCalendarAccess();
+        setIsAuthenticated(true);
+      }
+      setShowInviteModal(true);
+    } catch (error) {
+      console.error(error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Google sign-in failed. Please try again."
+      );
+    }
   }
 
   return (
@@ -426,13 +478,16 @@ function MealPlan({
       <div style={{ marginTop: 32, textAlign: "center" }}>
         <button
           className="btn btn-primary"
-          onClick={() => setShowInviteModal(true)}
+          onClick={handleCalendarInviteClick}
           style={{ fontSize: "1.1rem", padding: "12px 32px" }}
         >
-          Download Calendar Invites
+          {isAuthenticated
+            ? "Send Calendar Invites"
+            : "Sign in to Send Calendar Invites"}
         </button>
         <p style={{ marginTop: 8, fontSize: "0.8rem", color: "#666" }}>
-          Download .ics files for meal events (attendees optional)
+          Creates Google Calendar events and emails invites (including shopping
+          list)
         </p>
       </div>
       {showInviteModal && (
@@ -460,9 +515,10 @@ function MealPlan({
               position: "relative",
             }}
           >
-            <h3 style={{ marginBottom: 16 }}>Download Calendar Invites</h3>
+            <h3 style={{ marginBottom: 16 }}>Send Calendar Invites</h3>
             <p style={{ marginBottom: 16, fontSize: "0.9rem", color: "#666" }}>
-              Optional: add emails to include as attendees in the .ics files
+              Add email addresses to invite. Events are created on your Google
+              Calendar and invites are emailed automatically.
             </p>
             <form onSubmit={handleAddEmail} style={{ marginBottom: 16 }}>
               <input
@@ -516,14 +572,16 @@ function MealPlan({
               <button
                 className="btn btn-secondary"
                 onClick={() => setShowInviteModal(false)}
+                disabled={sending}
               >
                 Cancel
               </button>
               <button
                 className="btn btn-primary"
-                onClick={handleDownloadInvites}
+                onClick={handleSendInvites}
+                disabled={emails.length === 0 || sending}
               >
-                Download .ics Files
+                {sending ? "Sending..." : "Send Calendar Invites"}
               </button>
             </div>
           </div>
