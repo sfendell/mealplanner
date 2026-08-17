@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import PrepCalendar from "./PrepCalendar";
 import { toTitleCase } from "../utils/format";
 import { DAY_NAMES, DAY_LABELS } from "../constants";
-import { prepInstructions } from "../data/prep";
 import type { Meal } from "../types";
 
 type Day = {
@@ -19,7 +18,13 @@ type ShoppingList = {
   };
 };
 
-function MealPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
+function MealPlan({
+  mealsMap,
+  prepInstructions,
+}: {
+  mealsMap: Map<string, Meal>;
+  prepInstructions: Record<string, string>;
+}) {
   const [planType, setPlanType] = useState("weeknights");
   const [customStartDay, setCustomStartDay] = useState("monday");
   const [customEndDay, setCustomEndDay] = useState("friday");
@@ -177,7 +182,7 @@ function MealPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
     return (
       <div className="empty-state">
         <h3>No meals available</h3>
-        <p>Add meals to meals.txt and redeploy.</p>
+        <p>Add meals in the Google Sheet, then refresh.</p>
       </div>
     );
   }

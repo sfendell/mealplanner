@@ -1,6 +1,16 @@
 # MealPrep
 
-Static meal planning app. Meals live in `meals.txt`; prep steps in `prep.txt`.
+Static meal planning app on GitHub Pages. Meals and prep steps are loaded live from a Google Sheet.
+
+## Spreadsheet
+
+[Open MealPrep sheet](https://docs.google.com/spreadsheets/d/1ieWSYc-IB0ic1dz1Mv0lvyp1dobNyvCNGqIWf92AoEw/edit)
+
+Tabs:
+- **Meals** — columns: `Title`, `Quantity`, `Ingredient`, `Has Veggie Side` (one row per ingredient; set veggie side on the first row of a meal)
+- **Prep** — columns: `Key`, `Instruction`
+
+Edit the sheet, then hit **Refresh** in the app (or reload the page).
 
 ## Local development
 
@@ -11,12 +21,6 @@ npm run dev
 
 ## Deploy
 
-Pushes to `main` build and deploy to GitHub Pages via GitHub Actions.
+Pushes to `main` deploy to GitHub Pages via GitHub Actions.
 
 Site: https://sfendell.github.io/mealplanner/
-
-In the repo settings, set **Pages → Source** to **GitHub Actions**.
-
-## Editing meals
-
-Edit `meals.txt` (alphabetized on save via project scripts), commit, and push. No frontend meal editing.
