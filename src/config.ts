@@ -19,7 +19,8 @@ export const THIS_WEEK_TAB = "This Week";
  * https://www.googleapis.com/auth/spreadsheets
  */
 export const GOOGLE_CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  "483762291574-2gmg3ro0u50dbr3qu69l67o8091hoboi.apps.googleusercontent.com";
 
 export const GOOGLE_SHEETS_SCOPE =
   "https://www.googleapis.com/auth/spreadsheets";
