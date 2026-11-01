@@ -10,10 +10,22 @@ type GvizResponse = {
   };
 };
 
+const GVIZ_DATE = /^Date\((\d+),(\d+),(\d+)/;
+
 function cellValue(cell: GvizCell | null | undefined): string {
   if (!cell) return "";
   if (cell.v === null || cell.v === undefined) return "";
-  return String(cell.v).trim();
+  const raw = String(cell.v).trim();
+  // gviz returns date cells as "Date(y,m,d)" with a zero-based month.
+  const date = GVIZ_DATE.exec(raw);
+  if (date) {
+    const [, y, m, d] = date;
+    return `${y}-${String(Number(m) + 1).padStart(2, "0")}-${d.padStart(
+      2,
+      "0"
+    )}`;
+  }
+  return raw;
 }
 
 // gviz uses a single global callback; serialize loads so tabs don't race.
