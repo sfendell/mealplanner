@@ -1,4 +1,4 @@
-import { GOOGLE_CALENDAR_SCOPE, GOOGLE_CLIENT_ID } from "../config";
+import { GOOGLE_CLIENT_ID, GOOGLE_SHEETS_SCOPE } from "../config";
 
 const TOKEN_KEY = "mealprep_google_access_token";
 
@@ -70,10 +70,10 @@ export function isGoogleAuthConfigured(): boolean {
   return Boolean(GOOGLE_CLIENT_ID);
 }
 
-export async function requestGoogleCalendarAccess(): Promise<string> {
+export async function requestGoogleSheetsAccess(): Promise<string> {
   if (!GOOGLE_CLIENT_ID) {
     throw new Error(
-      "Missing Google OAuth Client ID. Set VITE_GOOGLE_CLIENT_ID or GOOGLE_CLIENT_ID in src/config.ts."
+      "Missing Google OAuth Client ID. Set VITE_GOOGLE_CLIENT_ID (or GOOGLE_CLIENT_ID in src/config.ts), with authorized origin https://sfendell.github.io, and enable the Google Sheets API."
     );
   }
 
@@ -87,7 +87,7 @@ export async function requestGoogleCalendarAccess(): Promise<string> {
 
     const client = window.google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
-      scope: GOOGLE_CALENDAR_SCOPE,
+      scope: GOOGLE_SHEETS_SCOPE,
       callback: (response) => {
         if (response.error || !response.access_token) {
           reject(
@@ -110,8 +110,8 @@ export async function requestGoogleCalendarAccess(): Promise<string> {
   });
 }
 
-export async function ensureGoogleCalendarAccess(): Promise<string> {
+export async function ensureGoogleSheetsAccess(): Promise<string> {
   const existing = getStoredAccessToken();
   if (existing) return existing;
-  return requestGoogleCalendarAccess();
+  return requestGoogleSheetsAccess();
 }

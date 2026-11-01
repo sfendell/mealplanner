@@ -1,6 +1,6 @@
 # MealPrep
 
-Static meal planning app on GitHub Pages. Meals and prep steps are loaded live from a Google Sheet.
+Static meal planning app on GitHub Pages. Meals, prep steps, and this week's plan are stored in a Google Sheet.
 
 ## Spreadsheet
 
@@ -9,27 +9,24 @@ Static meal planning app on GitHub Pages. Meals and prep steps are loaded live f
 Tabs:
 - **Meals** — columns: `Title`, `Quantity`, `Ingredient`, `Has Veggie Side` (one row per ingredient; set veggie side on the first row of a meal)
 - **Prep** — columns: `Key`, `Instruction`
+- **This Week** — columns: `Date`, `Day`, `Meal` (created automatically on first save)
 
-Edit the sheet, then hit **Refresh** in the app (or reload the page).
+## Saving this week's plan
 
-## Calendar invites
+**Build Plan** builds a shopping list / prep calendar, then **Save as This Week's Plan** writes to the sheet.
 
-The app creates Google Calendar events and emails attendees (same behavior as before, but entirely in the browser).
+**This Week's Plan** loads that saved plan and lets you edit every day, then save again.
 
-1. In [Google Cloud Console](https://console.cloud.google.com/), enable **Google Calendar API**
+Saving uses Google sign-in (Sheets API), not email/calendar invites.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), enable **Google Sheets API**
 2. Create an **OAuth client ID** → Application type **Web application**
 3. Add authorized JavaScript origins:
    - `http://localhost:5173`
    - `https://sfendell.github.io`
-4. Put the client ID in `.env` (local) / GitHub Actions secrets (deploy):
+4. Put the client ID in GitHub Actions secret `VITE_GOOGLE_CLIENT_ID`, or in `src/config.ts`
 
-```bash
-VITE_GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
-```
-
-Or paste it into `GOOGLE_CLIENT_ID` in `src/config.ts`.
-
-On the OAuth consent screen, add yourself (and anyone else who will click Send) as a test user if the app is in Testing mode.
+On the OAuth consent screen, add yourself as a test user if the app is in Testing mode. Sign in with an account that can **edit** the MealPrep spreadsheet.
 
 ## Local development
 
@@ -41,7 +38,5 @@ npm run dev
 ## Deploy
 
 Pushes to `main` deploy to GitHub Pages via GitHub Actions.
-
-For calendar invites in production, set repository secret `VITE_GOOGLE_CLIENT_ID` and pass it into the build step (see workflow), or hardcode the client ID in `src/config.ts`.
 
 Site: https://sfendell.github.io/mealplanner/

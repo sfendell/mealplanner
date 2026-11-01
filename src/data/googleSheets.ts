@@ -19,7 +19,7 @@ function cellValue(cell: GvizCell | null | undefined): string {
 // gviz uses a single global callback; serialize loads so tabs don't race.
 let sheetLoadChain: Promise<unknown> = Promise.resolve();
 
-function loadSheetViaGviz(sheetName: string): Promise<string[][]> {
+export function loadSheetViaGviz(sheetName: string): Promise<string[][]> {
   const run = () =>
     new Promise<string[][]>((resolve, reject) => {
       const timeout = window.setTimeout(() => {

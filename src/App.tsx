@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import MealPlan from "./components/MealPlan";
 import MealList from "./components/MealList";
+import ThisWeekPlan from "./components/ThisWeekPlan";
 import { SHEET_EDIT_URL } from "./config";
 import {
   fetchMealsFromSheet,
@@ -24,13 +25,14 @@ function Header() {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState("plan");
+  const [activeTab, setActiveTab] = useState("this-week");
   const [mealsMap, setMealsMap] = useState<Map<string, Meal>>(new Map());
   const [prepInstructions, setPrepInstructions] = useState<
     Record<string, string>
   >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [planVersion, setPlanVersion] = useState(0);
 
   const loadData = async () => {
     setLoading(true);
@@ -45,7 +47,9 @@ function App() {
     } catch (err) {
       console.error(err);
       setError(
-        err instanceof Error ? err.message : "Failed to load meals from Google Sheets"
+        err instanceof Error
+          ? err.message
+          : "Failed to load meals from Google Sheets"
       );
     } finally {
       setLoading(false);
@@ -96,25 +100,41 @@ function App() {
 
       <div className="tabs">
         <button
-          className={`tab ${activeTab === "meals" ? "active" : ""}`}
-          onClick={() => setActiveTab("meals")}
+          className={`tab ${activeTab === "this-week" ? "active" : ""}`}
+          onClick={() => setActiveTab("this-week")}
         >
-          My Meals
+          This Week's Plan
         </button>
         <button
           className={`tab ${activeTab === "plan" ? "active" : ""}`}
           onClick={() => setActiveTab("plan")}
         >
-          Weekly Plan
+          Build Plan
+        </button>
+        <button
+          className={`tab ${activeTab === "meals" ? "active" : ""}`}
+          onClick={() => setActiveTab("meals")}
+        >
+          My Meals
         </button>
       </div>
 
       <div className="content">
-        {activeTab === "meals" && (
-          <MealList mealsMap={mealsMap} onRefresh={loadData} />
+        {activeTab === "this-week" && (
+          <ThisWeekPlan key={planVersion} mealsMap={mealsMap} />
         )}
         {activeTab === "plan" && (
-          <MealPlan mealsMap={mealsMap} prepInstructions={prepInstructions} />
+          <MealPlan
+            mealsMap={mealsMap}
+            prepInstructions={prepInstructions}
+            onSavedPlan={() => {
+              setPlanVersion((v) => v + 1);
+              setActiveTab("this-week");
+            }}
+          />
+        )}
+        {activeTab === "meals" && (
+          <MealList mealsMap={mealsMap} onRefresh={loadData} />
         )}
       </div>
     </div>

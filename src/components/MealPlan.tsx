@@ -3,12 +3,12 @@ import PrepCalendar from "./PrepCalendar";
 import { toTitleCase } from "../utils/format";
 import { DAY_NAMES, DAY_LABELS } from "../constants";
 import {
-  ensureGoogleCalendarAccess,
-  getStoredAccessToken,
+  ensureGoogleSheetsAccess,
   isGoogleAuthConfigured,
 } from "../lib/googleAuth";
-import { createMealPrepCalendarEvents } from "../lib/googleCalendar";
+import { saveThisWeekPlan } from "../data/weeklyPlanSheet";
 import type { Meal } from "../types";
+import { toDateKey } from "../utils/week";
 
 type Day = {
   key: string;
@@ -27,9 +27,11 @@ type ShoppingList = {
 function MealPlan({
   mealsMap,
   prepInstructions,
+  onSavedPlan,
 }: {
   mealsMap: Map<string, Meal>;
   prepInstructions: Record<string, string>;
+  onSavedPlan?: () => void;
 }) {
   const [planType, setPlanType] = useState("weeknights");
   const [customStartDay, setCustomStartDay] = useState("monday");
@@ -54,16 +56,7 @@ function MealPlan({
     saturday: null as string | null,
     sunday: null as string | null,
   });
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [emails, setEmails] = useState([
-    "sfendell91@gmail.com",
-    "suresh.soumya105@gmail.com",
-  ]);
-  const [emailInput, setEmailInput] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => Boolean(getStoredAccessToken())
-  );
-  const [sending, setSending] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const getDaysForPlanType = () => {
     const today = new Date();
@@ -197,134 +190,50 @@ function MealPlan({
     );
   }
 
-  function generatePlannedEvents() {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return days
-      .map((day) => {
-        const mealId = weeklyPlan[day.key as keyof typeof weeklyPlan];
-        if (!mealId) return null;
-
-        if (mealId === "eatout") {
-          return {
-            title: "Eat Out",
-            description: "Eating out tonight",
-            date: day.date,
-            attendees: emails,
-            timezone,
-          };
-        }
-        if (mealId === "leftovers") {
-          return {
-            title: "Leftovers",
-            description: "Having leftovers tonight",
-            date: day.date,
-            attendees: emails,
-            timezone,
-          };
-        }
-
-        const meal = mealsMap.get(mealId);
-        if (!meal) return null;
-        return {
-          title: toTitleCase(meal.title),
-          description: `Meal prep for ${toTitleCase(meal.title)}`,
-          date: day.date,
-          attendees: emails,
-          timezone,
-        };
-      })
-      .filter(Boolean) as Array<{
-      title: string;
-      description: string;
-      date: Date;
-      attendees: string[];
-      timezone: string;
-    }>;
+  function mealValueForDay(dayKey: string): string {
+    const mealId = weeklyPlan[dayKey as keyof typeof weeklyPlan];
+    if (!mealId) return "";
+    if (mealId === "eatout" || mealId === "leftovers") return mealId;
+    const meal = mealsMap.get(mealId);
+    return meal ? meal.title.toLowerCase() : "";
   }
 
-  async function handleSendInvites() {
-    const events = generatePlannedEvents();
-    if (events.length === 0) {
-      alert("Select at least one meal before sending calendar invites.");
-      return;
-    }
-    if (emails.length === 0) {
-      alert("Add at least one attendee email.");
+  async function handleSaveThisWeek() {
+    const planned = days.filter(
+      (day) => weeklyPlan[day.key as keyof typeof weeklyPlan]
+    );
+    if (planned.length === 0) {
+      alert("Select at least one meal before saving this week's plan.");
       return;
     }
 
-    setSending(true);
-    try {
-      const accessToken = await ensureGoogleCalendarAccess();
-      setIsAuthenticated(true);
-      const created = await createMealPrepCalendarEvents({
-        accessToken,
-        events,
-        shoppingList,
-        veggieCount,
-        planType,
-        startDay: customStartDay,
-        endDay: customEndDay,
-      });
-
-      alert(
-        `Success! Created ${created.length} calendar event(s) and sent invites.\n\n${created
-          .map(
-            (event) =>
-              `• ${event.title}${
-                event.date ? ` - ${new Date(event.date).toLocaleDateString()}` : ""
-              }`
-          )
-          .join("\n")}`
-      );
-      setShowInviteModal(false);
-    } catch (error) {
-      console.error("Error sending invites:", error);
-      setIsAuthenticated(Boolean(getStoredAccessToken()));
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to send calendar invites. Please try again."
-      );
-    } finally {
-      setSending(false);
-    }
-  }
-
-  function handleAddEmail(e: React.FormEvent) {
-    e.preventDefault();
-    const val = emailInput.trim();
-    if (val && !emails.includes(val)) {
-      setEmails([...emails, val]);
-      setEmailInput("");
-    }
-  }
-
-  function handleRemoveEmail(email: string) {
-    setEmails(emails.filter((e) => e !== email));
-  }
-
-  async function handleCalendarInviteClick() {
     if (!isGoogleAuthConfigured()) {
       alert(
-        "Google Calendar is not configured yet. Add a Web OAuth Client ID as VITE_GOOGLE_CLIENT_ID (or in src/config.ts), with authorized origins http://localhost:5173 and https://sfendell.github.io."
+        "Google Sheets signing is not configured yet. Add a Web OAuth Client ID as VITE_GOOGLE_CLIENT_ID, enable the Google Sheets API, and authorize origin https://sfendell.github.io."
       );
       return;
     }
 
+    setSaving(true);
     try {
-      if (!getStoredAccessToken()) {
-        await ensureGoogleCalendarAccess();
-        setIsAuthenticated(true);
-      }
-      setShowInviteModal(true);
+      const token = await ensureGoogleSheetsAccess();
+      const planDays = days.map((day) => ({
+        date: toDateKey(day.date),
+        day: day.key,
+        meal: mealValueForDay(day.key),
+      }));
+      await saveThisWeekPlan(token, planDays);
+      alert("Saved to the This Week tab in Google Sheets.");
+      onSavedPlan?.();
     } catch (error) {
-      console.error(error);
+      console.error("Error saving plan:", error);
       alert(
         error instanceof Error
           ? error.message
-          : "Google sign-in failed. Please try again."
+          : "Failed to save this week's plan. Please try again."
       );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -478,115 +387,17 @@ function MealPlan({
       <div style={{ marginTop: 32, textAlign: "center" }}>
         <button
           className="btn btn-primary"
-          onClick={handleCalendarInviteClick}
+          onClick={handleSaveThisWeek}
+          disabled={saving}
           style={{ fontSize: "1.1rem", padding: "12px 32px" }}
         >
-          {isAuthenticated
-            ? "Send Calendar Invites"
-            : "Sign in to Send Calendar Invites"}
+          {saving ? "Saving..." : "Save as This Week's Plan"}
         </button>
         <p style={{ marginTop: 8, fontSize: "0.8rem", color: "#666" }}>
-          Creates Google Calendar events and emails invites (including shopping
-          list)
+          Writes the plan to the This Week tab in Google Sheets (signs in with
+          Google once)
         </p>
       </div>
-      {showInviteModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(0,0,0,0.3)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 12,
-              padding: 32,
-              minWidth: 320,
-              boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
-              position: "relative",
-            }}
-          >
-            <h3 style={{ marginBottom: 16 }}>Send Calendar Invites</h3>
-            <p style={{ marginBottom: 16, fontSize: "0.9rem", color: "#666" }}>
-              Add email addresses to invite. Events are created on your Google
-              Calendar and invites are emailed automatically.
-            </p>
-            <form onSubmit={handleAddEmail} style={{ marginBottom: 16 }}>
-              <input
-                type="email"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                placeholder="Add email address"
-                style={{ padding: 8, width: 200, marginRight: 8 }}
-              />
-              <button type="submit" className="btn btn-primary btn-sm">
-                Add
-              </button>
-            </form>
-            <div style={{ marginBottom: 16 }}>
-              {emails.map((email) => (
-                <span
-                  key={email}
-                  style={{
-                    display: "inline-block",
-                    background: "#f0f0f0",
-                    borderRadius: 8,
-                    padding: "4px 12px",
-                    margin: "0 8px 8px 0",
-                  }}
-                >
-                  {email}
-                  <button
-                    onClick={() => handleRemoveEmail(email)}
-                    style={{
-                      marginLeft: 8,
-                      background: "none",
-                      border: "none",
-                      color: "#dc3545",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                    title="Remove"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "8px",
-              }}
-            >
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowInviteModal(false)}
-                disabled={sending}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSendInvites}
-                disabled={emails.length === 0 || sending}
-              >
-                {sending ? "Sending..." : "Send Calendar Invites"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

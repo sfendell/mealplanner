@@ -5,6 +5,7 @@ export const SHEET_EDIT_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID
 
 export const MEALS_TAB = "Meals";
 export const PREP_TAB = "Prep";
+export const THIS_WEEK_TAB = "This Week";
 
 /**
  * OAuth 2.0 Web Client ID from Google Cloud Console.
@@ -13,10 +14,12 @@ export const PREP_TAB = "Prep";
  * Authorized JavaScript origins should include:
  * - http://localhost:5173
  * - https://sfendell.github.io
+ *
+ * Enable Google Sheets API and add scope:
+ * https://www.googleapis.com/auth/spreadsheets
  */
 export const GOOGLE_CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  "";
+  import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
-export const GOOGLE_CALENDAR_SCOPE =
-  "https://www.googleapis.com/auth/calendar.events";
+export const GOOGLE_SHEETS_SCOPE =
+  "https://www.googleapis.com/auth/spreadsheets";
