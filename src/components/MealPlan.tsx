@@ -6,7 +6,7 @@ import {
   ensureGoogleSheetsAccess,
   isGoogleAuthConfigured,
 } from "../lib/googleAuth";
-import { saveThisWeekPlan } from "../data/weeklyPlanSheet";
+import { saveThisWeekPlan, selectValueToPlanMeal } from "../data/weeklyPlanSheet";
 import type { Meal } from "../types";
 import { toDateKey } from "../utils/week";
 
@@ -27,11 +27,11 @@ type ShoppingList = {
 function MealPlan({
   mealsMap,
   prepInstructions,
-  onSavedPlan,
+  onSaved,
 }: {
   mealsMap: Map<string, Meal>;
   prepInstructions: Record<string, string>;
-  onSavedPlan?: () => void;
+  onSaved?: () => void;
 }) {
   const [planType, setPlanType] = useState("weeknights");
   const [customStartDay, setCustomStartDay] = useState("monday");
@@ -190,18 +190,19 @@ function MealPlan({
     );
   }
 
-  function mealValueForDay(dayKey: string): string {
-    const mealId = weeklyPlan[dayKey as keyof typeof weeklyPlan];
-    if (!mealId) return "";
-    if (mealId === "eatout" || mealId === "leftovers") return mealId;
-    const meal = mealsMap.get(mealId);
-    return meal ? meal.title.toLowerCase() : "";
-  }
-
   async function handleSaveThisWeek() {
-    const planned = days.filter(
-      (day) => weeklyPlan[day.key as keyof typeof weeklyPlan]
-    );
+    const planned = days
+      .map((day) => {
+        const selectValue =
+          weeklyPlan[day.key as keyof typeof weeklyPlan] || "";
+        return {
+          date: toDateKey(day.date),
+          day: day.key,
+          meal: selectValueToPlanMeal(selectValue, mealsMap),
+        };
+      })
+      .filter((day) => day.meal);
+
     if (planned.length === 0) {
       alert("Select at least one meal before saving this week's plan.");
       return;
@@ -209,7 +210,7 @@ function MealPlan({
 
     if (!isGoogleAuthConfigured()) {
       alert(
-        "Google Sheets signing is not configured yet. Add a Web OAuth Client ID as VITE_GOOGLE_CLIENT_ID, enable the Google Sheets API, and authorize origin https://sfendell.github.io."
+        "Google Sheets sign-in is not configured yet. Add a Web OAuth Client ID as VITE_GOOGLE_CLIENT_ID, enable the Google Sheets API, and authorize origin https://sfendell.github.io."
       );
       return;
     }
@@ -217,20 +218,29 @@ function MealPlan({
     setSaving(true);
     try {
       const token = await ensureGoogleSheetsAccess();
-      const planDays = days.map((day) => ({
-        date: toDateKey(day.date),
-        day: day.key,
-        meal: mealValueForDay(day.key),
-      }));
-      await saveThisWeekPlan(token, planDays);
-      alert("Saved to the This Week tab in Google Sheets.");
-      onSavedPlan?.();
+      // Persist the full current week Mon–Sun, filling blanks for unplanned days
+      // that fall outside the selected planning range by only writing planned days
+      // plus any days in the selected range (even if empty).
+      await saveThisWeekPlan(
+        token,
+        days.map((day) => {
+          const selectValue =
+            weeklyPlan[day.key as keyof typeof weeklyPlan] || "";
+          return {
+            date: toDateKey(day.date),
+            day: day.key,
+            meal: selectValueToPlanMeal(selectValue, mealsMap),
+          };
+        })
+      );
+      alert("Saved this week's plan to Google Sheets.");
+      onSaved?.();
     } catch (error) {
-      console.error("Error saving plan:", error);
+      console.error(error);
       alert(
         error instanceof Error
           ? error.message
-          : "Failed to save this week's plan. Please try again."
+          : "Failed to save this week's plan."
       );
     } finally {
       setSaving(false);
@@ -394,8 +404,7 @@ function MealPlan({
           {saving ? "Saving..." : "Save as This Week's Plan"}
         </button>
         <p style={{ marginTop: 8, fontSize: "0.8rem", color: "#666" }}>
-          Writes the plan to the This Week tab in Google Sheets (signs in with
-          Google once)
+          Saves the plan to the This Week tab in Google Sheets (no email)
         </p>
       </div>
     </div>

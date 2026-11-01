@@ -311,6 +311,58 @@ body {
   text-transform: capitalize;
 }
 
+.this-week-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  gap: 24px;
+  align-items: start;
+}
+
+.this-week-days {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.this-week-day {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid #e9ecef;
+}
+
+.this-week-day.is-today {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15);
+}
+
+.this-week-day-label h4 {
+  margin: 0;
+  color: #333;
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.this-week-day.is-today .this-week-day-label h4 {
+  color: #667eea;
+}
+
+.this-week-day-date {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.this-week-shopping {
+  position: sticky;
+  top: 16px;
+  margin-top: 0;
+}
+
 .shopping-list {
   background: #e8f5e8;
   border-radius: 10px;
@@ -439,5 +491,18 @@ body {
 @media (max-width: 768px) {
   .calendar-grid {
     grid-template-columns: 1fr;
+  }
+
+  .this-week-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .this-week-shopping {
+    position: static;
+  }
+
+  .this-week-day {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 }

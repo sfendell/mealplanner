@@ -21,6 +21,22 @@ export function startOfWeekMonday(date = new Date()): Date {
   return result;
 }
 
+/** Seven days starting today, in local time. */
+export function upcomingWeekDays(reference = new Date()): WeeklyPlanDay[] {
+  const start = new Date(reference);
+  start.setHours(12, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + i);
+    const dayKey = DAY_KEYS[date.getDay()];
+    return {
+      date: toDateKey(date),
+      day: dayKey,
+      meal: "",
+    };
+  });
+}
+
 /** Seven days Mon–Sun for the current week. */
 export function currentWeekDays(reference = new Date()): WeeklyPlanDay[] {
   const monday = startOfWeekMonday(reference);

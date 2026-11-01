@@ -19,7 +19,7 @@ Tabs:
 
 Saving uses Google sign-in (Sheets API), not email/calendar invites.
 
-1. In [Google Cloud Console](https://console.cloud.google.com/), enable **Google Sheets API**
+1. In [Google Cloud Console](https://console.cloud.google.com/), enable **Google Sheets API** (not just Calendar)
 2. Create an **OAuth client ID** → Application type **Web application**
 3. Add authorized JavaScript origins:
    - `http://localhost:5173`

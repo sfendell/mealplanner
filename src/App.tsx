@@ -32,7 +32,7 @@ function App() {
   >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [planVersion, setPlanVersion] = useState(0);
+  const [thisWeekKey, setThisWeekKey] = useState(0);
 
   const loadData = async () => {
     setLoading(true);
@@ -121,14 +121,14 @@ function App() {
 
       <div className="content">
         {activeTab === "this-week" && (
-          <ThisWeekPlan key={planVersion} mealsMap={mealsMap} />
+          <ThisWeekPlan key={thisWeekKey} mealsMap={mealsMap} />
         )}
         {activeTab === "plan" && (
           <MealPlan
             mealsMap={mealsMap}
             prepInstructions={prepInstructions}
-            onSavedPlan={() => {
-              setPlanVersion((v) => v + 1);
+            onSaved={() => {
+              setThisWeekKey((k) => k + 1);
               setActiveTab("this-week");
             }}
           />
