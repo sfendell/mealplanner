@@ -218,8 +218,9 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
       </div>
 
       <p style={{ color: "#666", marginBottom: 20 }}>
-        Seven days starting today. Edit a meal, then save. The plan is stored
-        in the <strong>{THIS_WEEK_TAB}</strong> tab of your spreadsheet.
+        Today through the next week. Edit any day, then save. Shopping list
+        updates live on the right. Stored in the{" "}
+        <strong>{THIS_WEEK_TAB}</strong> sheet tab.
       </p>
 
       {error && (

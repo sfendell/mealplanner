@@ -313,20 +313,20 @@ body {
 
 .this-week-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 340px);
+  gap: 28px;
   align-items: start;
 }
 
 .this-week-days {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .this-week-day {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr);
   gap: 16px;
   align-items: center;
   background: #f8f9fa;
