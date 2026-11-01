@@ -2,11 +2,14 @@ import React, { useEffect, useState } from "react";
 import MealPlan from "./components/MealPlan";
 import MealList from "./components/MealList";
 import ThisWeekPlan from "./components/ThisWeekPlan";
-import { SHEET_EDIT_URL } from "./config";
+import { MEALS_TAB, PREP_TAB, SHEET_EDIT_URL } from "./config";
 import {
   fetchMealsFromSheet,
   fetchPrepFromSheet,
   mealsToMap,
+  parseMeals,
+  parsePrep,
+  readCachedRows,
 } from "./data/googleSheets";
 import type { Meal } from "./types";
 
@@ -24,40 +27,63 @@ function Header() {
   );
 }
 
+function readCachedData(): {
+  meals: Map<string, Meal>;
+  prep: Record<string, string>;
+} | null {
+  const mealRows = readCachedRows(MEALS_TAB);
+  const prepRows = readCachedRows(PREP_TAB);
+  if (!mealRows || !prepRows) return null;
+  try {
+    return {
+      meals: mealsToMap(parseMeals(mealRows)),
+      prep: parsePrep(prepRows),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function App() {
+  const [cached] = useState(readCachedData);
   const [activeTab, setActiveTab] = useState("this-week");
-  const [mealsMap, setMealsMap] = useState<Map<string, Meal>>(new Map());
+  const [mealsMap, setMealsMap] = useState<Map<string, Meal>>(
+    () => cached?.meals ?? new Map()
+  );
   const [prepInstructions, setPrepInstructions] = useState<
     Record<string, string>
-  >({});
-  const [loading, setLoading] = useState(true);
+  >(() => cached?.prep ?? {});
+  const [loading, setLoading] = useState(cached === null);
   const [error, setError] = useState<string | null>(null);
   const [thisWeekKey, setThisWeekKey] = useState(0);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async ({ fresh }: { fresh: boolean }) => {
+    if (fresh) setLoading(true);
     setError(null);
     try {
       const [meals, prep] = await Promise.all([
-        fetchMealsFromSheet(),
-        fetchPrepFromSheet(),
+        fetchMealsFromSheet({ fresh }),
+        fetchPrepFromSheet({ fresh }),
       ]);
       setMealsMap(mealsToMap(meals));
       setPrepInstructions(prep);
     } catch (err) {
       console.error(err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load meals from Google Sheets"
-      );
+      // With cached data on screen, a failed background refresh isn't fatal.
+      if (fresh || cached === null) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load meals from Google Sheets"
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData({ fresh: false });
   }, []);
 
   if (loading) {
@@ -84,7 +110,7 @@ function App() {
             <button
               className="btn btn-primary"
               style={{ marginTop: 16 }}
-              onClick={loadData}
+              onClick={() => loadData({ fresh: true })}
             >
               Retry
             </button>
@@ -134,7 +160,10 @@ function App() {
           />
         )}
         {activeTab === "meals" && (
-          <MealList mealsMap={mealsMap} onRefresh={loadData} />
+          <MealList
+            mealsMap={mealsMap}
+            onRefresh={() => loadData({ fresh: true })}
+          />
         )}
       </div>
     </div>

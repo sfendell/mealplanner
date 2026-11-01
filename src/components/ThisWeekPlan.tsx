@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SHEET_EDIT_URL, THIS_WEEK_TAB } from "../config";
 import {
+  cachedThisWeekPlan,
   fetchThisWeekPlan,
   planMealToSelectValue,
   saveThisWeekPlan,
@@ -95,8 +96,12 @@ function mergeSavedIntoWeek(
 }
 
 function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
-  const [days, setDays] = useState<WeeklyPlanDay[]>(() => upcomingWeekDays());
-  const [loading, setLoading] = useState(true);
+  const [initialCache] = useState(() => cachedThisWeekPlan());
+  const [days, setDays] = useState<WeeklyPlanDay[]>(() =>
+    mergeSavedIntoWeek(upcomingWeekDays(), initialCache ?? [])
+  );
+  const [loading, setLoading] = useState(initialCache === null);
+  const editedRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -121,14 +126,19 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
   );
   const todayKey = toDateKey(new Date());
 
-  const load = async () => {
-    setLoading(true);
+  const load = async ({ fresh }: { fresh: boolean }) => {
+    if (fresh) {
+      setLoading(true);
+      editedRef.current = false;
+    }
     setError(null);
     setStatus(null);
     try {
-      const week = upcomingWeekDays();
-      const saved = await fetchThisWeekPlan();
-      setDays(mergeSavedIntoWeek(week, saved));
+      const saved = await fetchThisWeekPlan({ fresh });
+      // A background refresh must not clobber edits made while it was loading.
+      if (!editedRef.current) {
+        setDays(mergeSavedIntoWeek(upcomingWeekDays(), saved));
+      }
     } catch (err) {
       console.error(err);
       setError(
@@ -140,10 +150,11 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
   };
 
   useEffect(() => {
-    load();
+    load({ fresh: false });
   }, []);
 
   const handleMealChange = (date: string, selectValue: string) => {
+    editedRef.current = true;
     const meal = selectValueToPlanMeal(selectValue, mealsMap);
     setDays((prev) =>
       prev.map((day) => (day.date === date ? { ...day, meal } : day))
@@ -165,6 +176,7 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
     try {
       const token = await ensureGoogleSheetsAccess();
       await saveThisWeekPlan(token, days);
+      editedRef.current = false;
       setStatus(`Saved to the "${THIS_WEEK_TAB}" tab in Google Sheets.`);
     } catch (err) {
       console.error(err);
@@ -204,7 +216,10 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
           >
             Open Sheet
           </a>
-          <button className="btn btn-secondary btn-sm" onClick={load}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => load({ fresh: true })}
+          >
             Refresh
           </button>
           <button

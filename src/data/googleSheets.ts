@@ -1,14 +1,18 @@
 import type { Ingredient, Meal } from "../types";
-import { MEALS_TAB, PREP_TAB, SHEET_ID } from "../config";
+import { MEALS_TAB, PREP_TAB, SHEET_ID, THIS_WEEK_TAB } from "../config";
 
 type GvizCell = { v?: string | number | boolean | null; f?: string };
 type GvizRow = { c: Array<GvizCell | null> };
 type GvizResponse = {
+  status?: string;
+  errors?: Array<{ detailed_message?: string; message?: string }>;
   table?: {
     cols?: Array<{ label?: string }>;
     rows?: GvizRow[];
   };
 };
+
+const CACHE_PREFIX = "mealprep_sheet_v1:";
 
 const GVIZ_DATE = /^Date\((\d+),(\d+),(\d+)/;
 
@@ -28,68 +32,109 @@ function cellValue(cell: GvizCell | null | undefined): string {
   return raw;
 }
 
-// gviz uses a single global callback; serialize loads so tabs don't race.
-let sheetLoadChain: Promise<unknown> = Promise.resolve();
-
-export function loadSheetViaGviz(sheetName: string): Promise<string[][]> {
-  const run = () =>
-    new Promise<string[][]>((resolve, reject) => {
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        reject(new Error(`Timed out loading sheet "${sheetName}"`));
-      }, 15000);
-
-      const previousGoogle = (window as unknown as { google?: unknown }).google;
-
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        script.remove();
-        if (previousGoogle === undefined) {
-          delete (window as unknown as { google?: unknown }).google;
-        } else {
-          (window as unknown as { google: unknown }).google = previousGoogle;
-        }
-      };
-
-      (window as unknown as { google: unknown }).google = {
-        visualization: {
-          Query: {
-            setResponse: (response: GvizResponse) => {
-              try {
-                const rows = response.table?.rows ?? [];
-                const cols = response.table?.cols ?? [];
-                const header = cols.map((col) => (col.label || "").trim());
-                const data = rows.map((row) =>
-                  (row.c || []).map((cell) => cellValue(cell))
-                );
-                resolve([header, ...data]);
-                cleanup();
-              } catch (error) {
-                cleanup();
-                reject(error);
-              }
-            },
-          },
-        },
-      };
-
-      const script = document.createElement("script");
-      script.onerror = () => {
-        cleanup();
-        reject(new Error(`Failed to load sheet "${sheetName}"`));
-      };
-      script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
-        sheetName
-      )}&headers=1`;
-      document.body.appendChild(script);
-    });
-
-  const result = sheetLoadChain.then(run, run);
-  sheetLoadChain = result.then(
-    () => undefined,
-    () => undefined
+function parseGvizResponse(sheetName: string, text: string): string[][] {
+  // The body is "/*O_o*/\ngoogle.visualization.Query.setResponse({...});"
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1) {
+    throw new Error(`Unexpected response loading sheet "${sheetName}"`);
+  }
+  const response = JSON.parse(text.slice(start, end + 1)) as GvizResponse;
+  if (response.status === "error") {
+    const detail =
+      response.errors?.[0]?.detailed_message || response.errors?.[0]?.message;
+    throw new Error(
+      `Failed to load sheet "${sheetName}"${detail ? `: ${detail}` : ""}`
+    );
+  }
+  const header = (response.table?.cols ?? []).map((col) =>
+    (col.label || "").trim()
   );
-  return result;
+  const data = (response.table?.rows ?? []).map((row) =>
+    (row.c || []).map((cell) => cellValue(cell))
+  );
+  return [header, ...data];
+}
+
+async function fetchSheetRows(sheetName: string): Promise<string[][]> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(
+        sheetName
+      )}&headers=1`,
+      // Must match the <link rel="preload"> tags in index.html to reuse them.
+      { signal: controller.signal }
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Failed to load sheet "${sheetName}" (${response.status})`
+      );
+    }
+    const rows = parseGvizResponse(sheetName, await response.text());
+    writeCachedRows(sheetName, rows);
+    return rows;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Timed out loading sheet "${sheetName}"`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+const inFlight = new Map<string, Promise<string[][]>>();
+
+/**
+ * Load a tab's rows. Concurrent callers share one request; pass
+ * `fresh` to start a new request even if one already finished.
+ */
+export function loadSheetRows(
+  sheetName: string,
+  { fresh = false }: { fresh?: boolean } = {}
+): Promise<string[][]> {
+  const existing = inFlight.get(sheetName);
+  if (existing && !fresh) return existing;
+  const request = fetchSheetRows(sheetName);
+  inFlight.set(sheetName, request);
+  request.catch(() => {
+    if (inFlight.get(sheetName) === request) inFlight.delete(sheetName);
+  });
+  return request;
+}
+
+/** Replace a tab's loaded and cached rows, e.g. right after writing it. */
+export function primeSheetRows(sheetName: string, rows: string[][]): void {
+  inFlight.set(sheetName, Promise.resolve(rows));
+  writeCachedRows(sheetName, rows);
+}
+
+/** Start loading every tab the app needs, before React renders. */
+export function prefetchSheets(): void {
+  [MEALS_TAB, PREP_TAB, THIS_WEEK_TAB].forEach((tab) => {
+    loadSheetRows(tab).catch(() => undefined);
+  });
+}
+
+export function readCachedRows(sheetName: string): string[][] | null {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + sheetName);
+    if (!raw) return null;
+    const rows = JSON.parse(raw);
+    return Array.isArray(rows) ? (rows as string[][]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCachedRows(sheetName: string, rows: string[][]): void {
+  try {
+    localStorage.setItem(CACHE_PREFIX + sheetName, JSON.stringify(rows));
+  } catch {
+    // Storage full or disabled; the network copy still works.
+  }
 }
 
 function parseIngredientLine(quantity: string, name: string): Ingredient | null {
@@ -107,8 +152,7 @@ function truthy(value: string): boolean {
   return v === "true" || v === "yes" || v === "1" || v === "y";
 }
 
-export async function fetchMealsFromSheet(): Promise<Meal[]> {
-  const rows = await loadSheetViaGviz(MEALS_TAB);
+export function parseMeals(rows: string[][]): Meal[] {
   if (rows.length === 0) return [];
 
   const header = rows[0].map((h) => h.toLowerCase());
@@ -173,8 +217,13 @@ export async function fetchMealsFromSheet(): Promise<Meal[]> {
   return meals.sort((a, b) => a.title.localeCompare(b.title));
 }
 
-export async function fetchPrepFromSheet(): Promise<Record<string, string>> {
-  const rows = await loadSheetViaGviz(PREP_TAB);
+export async function fetchMealsFromSheet(options?: {
+  fresh?: boolean;
+}): Promise<Meal[]> {
+  return parseMeals(await loadSheetRows(MEALS_TAB, options));
+}
+
+export function parsePrep(rows: string[][]): Record<string, string> {
   if (rows.length === 0) return {};
 
   const header = rows[0].map((h) => h.toLowerCase());
@@ -198,6 +247,12 @@ export async function fetchPrepFromSheet(): Promise<Record<string, string>> {
     }
   }
   return instructions;
+}
+
+export async function fetchPrepFromSheet(options?: {
+  fresh?: boolean;
+}): Promise<Record<string, string>> {
+  return parsePrep(await loadSheetRows(PREP_TAB, options));
 }
 
 export function mealsToMap(meals: Meal[]): Map<string, Meal> {
