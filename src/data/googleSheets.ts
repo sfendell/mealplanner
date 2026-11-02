@@ -147,11 +147,6 @@ function parseIngredientLine(quantity: string, name: string): Ingredient | null 
   };
 }
 
-function truthy(value: string): boolean {
-  const v = value.trim().toLowerCase();
-  return v === "true" || v === "yes" || v === "1" || v === "y";
-}
-
 export function parseMeals(rows: string[][]): Meal[] {
   if (rows.length === 0) return [];
 
@@ -161,23 +156,13 @@ export function parseMeals(rows: string[][]): Meal[] {
   const ingredientIdx = header.findIndex(
     (h) => h === "ingredient" || h === "ingredients"
   );
-  const veggieIdx = header.findIndex(
-    (h) =>
-      h === "has veggie side" ||
-      h === "veggie side" ||
-      h === "hasveggieside"
-  );
-
   if (titleIdx === -1 || ingredientIdx === -1) {
     throw new Error(
-      'Meals sheet needs "Title" and "Ingredient" columns (optional: Quantity, Has Veggie Side)'
+      'Meals sheet needs "Title" and "Ingredient" columns (optional: Quantity)'
     );
   }
 
-  const byTitle = new Map<
-    string,
-    { ingredients: Ingredient[]; hasVeggieSide: boolean }
-  >();
+  const byTitle = new Map<string, Ingredient[]>();
 
   for (const row of rows.slice(1)) {
     const title = (row[titleIdx] || "").trim().toLowerCase();
@@ -188,29 +173,20 @@ export function parseMeals(rows: string[][]): Meal[] {
       row[ingredientIdx] || ""
     );
 
-    const existing = byTitle.get(title) || {
-      ingredients: [],
-      hasVeggieSide: false,
-    };
-
-    if (veggieIdx >= 0 && row[veggieIdx]) {
-      existing.hasVeggieSide =
-        existing.hasVeggieSide || truthy(row[veggieIdx]);
-    }
+    const existing = byTitle.get(title) || [];
 
     if (ingredient) {
-      existing.ingredients.push(ingredient);
+      existing.push(ingredient);
     }
 
     byTitle.set(title, existing);
   }
 
   const meals: Meal[] = Array.from(byTitle.entries()).map(
-    ([title, data], index) => ({
+    ([title, ingredients], index) => ({
       id: String(index + 1),
       title,
-      ingredients: data.ingredients,
-      hasVeggieSide: data.hasVeggieSide,
+      ingredients,
     })
   );
 

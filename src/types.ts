@@ -7,7 +7,6 @@ export type Meal = {
   id: string;
   title: string;
   ingredients: Ingredient[];
-  hasVeggieSide: boolean;
 };
 
 /** Meal title, or special values "eatout" / "leftovers", or empty. */

@@ -68,11 +68,6 @@ function MealList({
                   </div>
                 ))}
               </div>
-              {meal.hasVeggieSide && (
-                <div style={{ marginTop: "10px" }}>
-                  <span className="veggie-badge">Veggie Side</span>
-                </div>
-              )}
             </div>
           ))}
         </div>

@@ -137,7 +137,6 @@ function MealPlan({
 
   const generateShoppingList = () => {
     const shoppingList: ShoppingList = {};
-    let veggieCount = 0;
 
     Object.values(weeklyPlan).forEach((mealId) => {
       if (!mealId || mealId === "eatout" || mealId === "leftovers") return;
@@ -162,16 +161,13 @@ function MealPlan({
             };
           }
         });
-        if (meal.hasVeggieSide) {
-          veggieCount++;
-        }
       }
     });
 
-    return { shoppingList, veggieCount };
+    return shoppingList;
   };
 
-  const { shoppingList, veggieCount } = generateShoppingList();
+  const shoppingList = generateShoppingList();
   const shoppingItems = Object.values(shoppingList).sort((a, b) => {
     if (a.isBoolean && !b.isBoolean) return 1;
     if (!a.isBoolean && b.isBoolean) return -1;
@@ -371,12 +367,6 @@ function MealPlan({
           </div>
         </div>
       )}
-      {veggieCount > 0 && (
-        <div className="veggie-count">
-          Total Veggie Sides Needed: {veggieCount}
-        </div>
-      )}
-
       {shoppingItems.length === 0 &&
         Object.values(weeklyPlan).some((meal) => meal) && (
           <div className="shopping-list">

@@ -188,10 +188,6 @@ body {
   width: 80px;
 }
 
-.veggie-checkbox {
-  margin-left: 10px;
-}
-
 .meal-card {
   background: #f8f9fa;
   border-radius: 10px;
@@ -225,15 +221,6 @@ body {
   font-weight: 600;
   color: #667eea;
   min-width: 30px;
-}
-
-.veggie-badge {
-  background: #28a745;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
 }
 
 .meal-plan-grid {
@@ -386,16 +373,6 @@ body {
 
 .shopping-item:last-child {
   border-bottom: none;
-}
-
-.veggie-count {
-  background: #28a745;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-weight: 600;
-  margin-top: 15px;
-  display: inline-block;
 }
 
 .empty-state {

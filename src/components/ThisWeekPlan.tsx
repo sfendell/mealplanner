@@ -63,7 +63,6 @@ function buildShoppingList(
     existing.quantity = combineQuantities(existing.quantity, quantity);
   };
 
-  let veggieCount = 0;
   days.forEach((day) => {
     if (!day.meal || day.meal === "eatout" || day.meal === "leftovers") return;
     const meal = byTitle.get(day.meal);
@@ -71,12 +70,7 @@ function buildShoppingList(
     meal.ingredients.forEach((ingredient) => {
       add(ingredient.name, ingredient.quantity);
     });
-    if (meal.hasVeggieSide) veggieCount += 1;
   });
-
-  if (veggieCount > 0) {
-    add("veggie side", String(veggieCount));
-  }
 
   return Array.from(items.values()).sort((a, b) => {
     if (!!a.quantity !== !!b.quantity) return a.quantity ? -1 : 1;

@@ -7,7 +7,7 @@ Static meal planning app on GitHub Pages. Meals, prep steps, and this week's pla
 [Open MealPrep sheet](https://docs.google.com/spreadsheets/d/1ieWSYc-IB0ic1dz1Mv0lvyp1dobNyvCNGqIWf92AoEw/edit)
 
 Tabs:
-- **Meals** — columns: `Title`, `Quantity`, `Ingredient`, `Has Veggie Side` (one row per ingredient; set veggie side on the first row of a meal)
+- **Meals** — columns: `Title`, `Quantity`, `Ingredient` (one row per ingredient)
 - **Prep** — columns: `Key`, `Instruction`
 - **This Week** — columns: `Date`, `Day`, `Meal` (created automatically on first save)
 
