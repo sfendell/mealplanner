@@ -9,6 +9,7 @@ import {
 } from "../data/weeklyPlanSheet";
 import {
   ensureGoogleSheetsAccess,
+  getStoredAccessToken,
   isGoogleAuthConfigured,
 } from "../lib/googleAuth";
 import type { Meal, WeeklyPlanDay } from "../types";
@@ -96,6 +97,9 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
   );
   const [loading, setLoading] = useState(initialCache === null);
   const editedRef = useRef(false);
+  const saveIdRef = useRef(0);
+  const [signedIn, setSignedIn] = useState(() => Boolean(getStoredAccessToken()));
+  const [signingIn, setSigningIn] = useState(() => !getStoredAccessToken());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -143,41 +147,82 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
     }
   };
 
-  useEffect(() => {
-    load({ fresh: false });
-  }, []);
-
-  const handleMealChange = (date: string, selectValue: string) => {
-    editedRef.current = true;
-    const meal = selectValueToPlanMeal(selectValue, mealsMap);
-    setDays((prev) =>
-      prev.map((day) => (day.date === date ? { ...day, meal } : day))
-    );
-    setStatus(null);
-  };
-
-  const handleSave = async () => {
+  const promptSignIn = async () => {
     if (!isGoogleAuthConfigured()) {
-      alert(
+      setSigningIn(false);
+      setSignedIn(false);
+      setError(
         "Google Sheets sign-in is not configured yet. Add a Web OAuth Client ID as VITE_GOOGLE_CLIENT_ID, enable the Google Sheets API, and authorize origin https://sfendell.github.io."
       );
       return;
     }
 
-    setSaving(true);
+    const alreadySignedIn = Boolean(getStoredAccessToken());
+    if (!alreadySignedIn) setSigningIn(true);
     setError(null);
-    setStatus(null);
     try {
-      const token = await ensureGoogleSheetsAccess();
-      await saveThisWeekPlan(token, days);
-      editedRef.current = false;
-      setStatus(`Saved to the "${THIS_WEEK_TAB}" tab in Google Sheets.`);
+      await ensureGoogleSheetsAccess();
+      setSignedIn(true);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Failed to save plan");
+      setSignedIn(false);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Google sign-in was cancelled. Sign in to edit and save."
+      );
     } finally {
-      setSaving(false);
+      setSigningIn(false);
     }
+  };
+
+  const autoSave = async (nextDays: WeeklyPlanDay[]) => {
+    if (!isGoogleAuthConfigured()) {
+      setError(
+        "Google Sheets sign-in is not configured yet. Add a Web OAuth Client ID as VITE_GOOGLE_CLIENT_ID."
+      );
+      return;
+    }
+
+    const saveId = ++saveIdRef.current;
+    setSaving(true);
+    setError(null);
+    setStatus("Saving...");
+    try {
+      const token = await ensureGoogleSheetsAccess();
+      setSignedIn(true);
+      await saveThisWeekPlan(token, nextDays);
+      if (saveId !== saveIdRef.current) return;
+      editedRef.current = false;
+      setStatus("Saved.");
+    } catch (err) {
+      console.error(err);
+      if (saveId !== saveIdRef.current) return;
+      setSignedIn(false);
+      setError(err instanceof Error ? err.message : "Failed to save plan");
+      setStatus(null);
+    } finally {
+      if (saveId === saveIdRef.current) {
+        setSaving(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    void promptSignIn();
+    void load({ fresh: false });
+  }, []);
+
+  const handleMealChange = (date: string, selectValue: string) => {
+    editedRef.current = true;
+    const meal = selectValueToPlanMeal(selectValue, mealsMap);
+    setDays((prev) => {
+      const nextDays = prev.map((day) =>
+        day.date === date ? { ...day, meal } : day
+      );
+      void autoSave(nextDays);
+      return nextDays;
+    });
   };
 
   if (loading) {
@@ -201,7 +246,12 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
         }}
       >
         <h2 style={{ margin: 0 }}>This Week's Plan</h2>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {(saving || status) && (
+            <span style={{ color: "#666", fontSize: 14 }}>
+              {saving ? "Saving..." : status}
+            </span>
+          )}
           <a
             className="btn btn-secondary btn-sm"
             href={`${SHEET_EDIT_URL}#gid=0`}
@@ -216,18 +266,20 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
           >
             Refresh
           </button>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
+          {!signedIn && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => void promptSignIn()}
+              disabled={signingIn}
+            >
+              {signingIn ? "Signing in..." : "Sign in with Google"}
+            </button>
+          )}
         </div>
       </div>
 
       <p style={{ color: "#666", marginBottom: 20 }}>
-        Today through the next week. Edit any day, then save. Shopping list
+        Today through the next week. Changes save automatically. Shopping list
         updates live on the right. Stored in the{" "}
         <strong>{THIS_WEEK_TAB}</strong> sheet tab.
       </p>
@@ -243,20 +295,6 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
           }}
         >
           {error}
-        </div>
-      )}
-
-      {status && (
-        <div
-          style={{
-            background: "#d4edda",
-            color: "#155724",
-            padding: 12,
-            borderRadius: 8,
-            marginBottom: 16,
-          }}
-        >
-          {status}
         </div>
       )}
 
@@ -279,6 +317,7 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
                   className="form-control"
                   value={planMealToSelectValue(day.meal, mealsByTitle)}
                   onChange={(e) => handleMealChange(day.date, e.target.value)}
+                  disabled={!signedIn || signingIn}
                 >
                   <option value="">Select</option>
                   <option value="eatout">Eat Out</option>
