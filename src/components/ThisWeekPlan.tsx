@@ -99,7 +99,7 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
   const editedRef = useRef(false);
   const saveIdRef = useRef(0);
   const [signedIn, setSignedIn] = useState(() => Boolean(getStoredAccessToken()));
-  const [signingIn, setSigningIn] = useState(() => !getStoredAccessToken());
+  const [signingIn, setSigningIn] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -209,7 +209,6 @@ function ThisWeekPlan({ mealsMap }: { mealsMap: Map<string, Meal> }) {
   };
 
   useEffect(() => {
-    void promptSignIn();
     void load({ fresh: false });
   }, []);
 

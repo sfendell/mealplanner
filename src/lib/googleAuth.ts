@@ -37,6 +37,10 @@ function loadGisScript(): Promise<void> {
       'script[src="https://accounts.google.com/gsi/client"]'
     );
     if (existing) {
+      if (window.google?.accounts?.oauth2) {
+        resolve();
+        return;
+      }
       existing.addEventListener("load", () => resolve());
       existing.addEventListener("error", () =>
         reject(new Error("Failed to load Google Identity Services"))
